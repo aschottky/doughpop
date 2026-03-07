@@ -26,7 +26,7 @@ const features = [
   {
     icon: <ShoppingBag size={24} />,
     title: 'Online Storefront',
-    desc: 'Get your own shareable store page at doughpop.com/your-bakery. Showcase your products, accept custom orders, and take requests 24/7.',
+    desc: 'Get your own shareable store page at doughpop.com/store/your-bakery. Showcase your products, accept custom orders, and take requests 24/7.',
     color: 'honey'
   },
   {
