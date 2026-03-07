@@ -1,0 +1,110 @@
+.client-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.client-detail-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.client-detail-sidebar {
+  position: sticky;
+  top: 20px;
+}
+
+.client-detail-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--honey) 0%, var(--rose) 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 auto 16px;
+  text-transform: uppercase;
+}
+
+.client-detail-name {
+  font-size: 1.25rem;
+  color: var(--chocolate);
+  text-align: center;
+  font-family: var(--font-display);
+  margin-bottom: 16px;
+}
+
+.client-detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.client-stat { text-align: center; }
+.client-stat-value { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--chocolate); }
+.client-stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-top: 2px; }
+
+.client-detail-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.client-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.client-info-row svg { flex-shrink: 0; margin-top: 1px; color: var(--honey); }
+.client-info-row a { color: var(--honey-dark); }
+
+.client-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.client-detail-notes {
+  padding-top: 16px;
+  border-top: 1px solid var(--border-light);
+}
+
+.client-notes-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.client-detail-notes p {
+  font-size: 0.875rem;
+  color: var(--text-body);
+  line-height: 1.65;
+}
+
+.client-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .client-detail-grid { grid-template-columns: 1fr; }
+  .client-detail-sidebar { position: static; }
+}

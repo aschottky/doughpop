@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+gcp-checkout/node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Vite
+*.local
+
+# Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# GCP secrets
+gcp-checkout/.env
+gcp-checkout/service-account*.json

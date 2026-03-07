@@ -1,0 +1,108 @@
+.upgrade-page {
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.upgrade-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 64px;
+  color: var(--text-muted);
+}
+
+.upgrade-header { margin-bottom: 28px; }
+.upgrade-header h1 { font-size: 1.75rem; color: var(--chocolate); margin: 12px 0 8px; }
+.upgrade-header p { color: var(--text-muted); max-width: 40ch; margin: 0 auto; }
+
+.upgrade-alert {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  font-size: 0.9375rem;
+  text-align: left;
+}
+
+.upgrade-alert-success { background: var(--success-bg); color: #15803D; }
+.upgrade-alert-error { background: var(--error-bg); color: var(--error); }
+
+.upgrade-already-pro {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.upgrade-already-pro h2 { color: var(--chocolate); margin-bottom: 8px; }
+.upgrade-already-pro p { color: var(--text-muted); margin: 0 auto 24px; }
+
+.upgrade-card {
+  background: var(--chocolate);
+  border-radius: var(--radius-2xl);
+  padding: 40px 36px;
+  text-align: center;
+  position: relative;
+  color: white;
+  box-shadow: var(--shadow-xl);
+}
+
+.upgrade-card-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--honey) 0%, var(--honey-dark) 100%);
+  color: white;
+  padding: 6px 20px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(200,145,58,0.35);
+}
+
+.upgrade-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.upgrade-amount { font-family: var(--font-display); font-size: 3.5rem; font-weight: 700; color: white; }
+.upgrade-period { font-size: 1rem; color: rgba(255,248,240,0.5); }
+.upgrade-tagline { font-size: 0.8125rem; color: rgba(255,248,240,0.45); margin-bottom: 28px; max-width: none; }
+
+.upgrade-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+  text-align: left;
+}
+
+.upgrade-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9375rem;
+  color: rgba(255,248,240,0.85);
+}
+
+.upgrade-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1rem;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.upgrade-guarantee {
+  font-size: 0.8125rem;
+  color: rgba(255,248,240,0.4);
+  max-width: none;
+}

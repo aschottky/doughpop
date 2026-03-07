@@ -1,0 +1,68 @@
+.client-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.client-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.client-avatar-sm {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--honey) 0%, var(--rose) 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.client-contact-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.client-contact-cell span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.client-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--cream-dark);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--espresso);
+  margin-right: 4px;
+}
+
+.client-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.client-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 600px) {
+  .client-form-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,38 @@
+.quote-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.quote-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quote-filter-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: white;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quote-filter-btn:hover { border-color: var(--honey); color: var(--honey); }
+.quote-filter-btn.active { background: var(--warning-bg); border-color: var(--honey); color: var(--honey-dark); }
+
+.quote-count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.quote-num-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

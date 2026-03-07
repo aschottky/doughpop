@@ -1,0 +1,15 @@
+{
+  "name": "doughpop-checkout",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "GCP Cloud Function for DoughPop Stripe checkout",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.91.0",
+    "jose": "^5.2.0",
+    "stripe": "^14.14.0"
+  }
+}
