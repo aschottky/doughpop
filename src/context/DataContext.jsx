@@ -546,6 +546,120 @@ export function DataProvider({ children }) {
     }
   }, [configured, user])
 
+  // ─── Tasks ─────────────────────────────────────────────────────────────────
+
+  const getTasks = useCallback(async (dateRange = null) => {
+    let query = q('tasks')
+      .select('*')
+      .eq('baker_id', user.id)
+      .order('due_date', { ascending: true })
+      .order('sort_order', { ascending: true })
+    
+    if (dateRange?.from) {
+      query = query.gte('due_date', dateRange.from)
+    }
+    if (dateRange?.to) {
+      query = query.lte('due_date', dateRange.to)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createTask = useCallback(async (taskData) => {
+    const { data, error } = await q('tasks')
+      .insert({ ...taskData, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateTask = useCallback(async (id, updates) => {
+    const { data, error } = await q('tasks')
+      .update(updates)
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const completeTask = useCallback(async (id, isCompleted = true) => {
+    const { data, error } = await q('tasks')
+      .update({ 
+        is_completed: isCompleted, 
+        completed_at: isCompleted ? new Date().toISOString() : null 
+      })
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteTask = useCallback(async (id) => {
+    const { error } = await q('tasks')
+      .delete()
+      .eq('id', id)
+      .eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // Generate tasks from orders
+  const generateTasksFromOrders = useCallback(async (orders, weekStart) => {
+    const taskTemplates = {
+      'Cakes': ['baking', 'frosting', 'decorating'],
+      'Cupcakes': ['baking', 'frosting'],
+      'Cookies': ['dough', 'baking', 'decorating'],
+      'Bread': ['dough', 'baking'],
+      'Pies': ['prepping', 'baking'],
+      'Pastries': ['prepping', 'baking', 'frosting'],
+      'default': ['prepping', 'baking']
+    }
+
+    const tasks = []
+    
+    for (const order of orders) {
+      const items = order.order_items || []
+      const categories = new Set()
+      
+      items.forEach(item => {
+        const cat = item.product_categories?.name || 'default'
+        const templates = taskTemplates[cat] || taskTemplates.default
+        templates.forEach(t => categories.add(t))
+      })
+
+      // Create tasks 2 days before event/pickup
+      const eventDate = new Date(order.event_date || order.pickup_date)
+      const taskDate = new Date(eventDate)
+      taskDate.setDate(taskDate.getDate() - 2)
+      
+      if (taskDate >= new Date(weekStart)) {
+        categories.forEach((category, idx) => {
+          tasks.push({
+            order_id: order.id,
+            category,
+            description: `${category.charAt(0).toUpperCase() + category.slice(1)} for ${order.customer_name || 'Order ' + order.order_number}`,
+            due_date: taskDate.toISOString().split('T')[0],
+            sort_order: idx
+          })
+        })
+      }
+    }
+
+    // Save all tasks
+    if (tasks.length > 0) {
+      const { error } = await q('tasks').insert(tasks.map(t => ({ ...t, baker_id: user.id })))
+      if (error) throw error
+    }
+    
+    return tasks.length
+  }, [q, user])
+
   const value = {
     // Clients
     getClients, createClient, updateClient, deleteClient,
@@ -565,6 +679,8 @@ export function DataProvider({ children }) {
     getStore, saveStore,
     // Orders
     getOrders, updateOrderStatus,
+    // Tasks
+    getTasks, createTask, updateTask, completeTask, deleteTask, generateTasksFromOrders,
     // Stats
     getDashboardStats
   }

@@ -498,3 +498,34 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Apply updated_at trigger to discount_presets
 DROP TRIGGER IF EXISTS set_updated_at ON discount_presets;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON discount_presets FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+
+-- ============================================================================
+-- PHASE 2 FEATURES: Tasks and Calendar
+-- ============================================================================
+
+-- TASKS (for weekly task lists and general to-dos)
+CREATE TABLE IF NOT EXISTS tasks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  category TEXT NOT NULL CHECK (category IN ('baking', 'shopping', 'prepping', 'fondant', 'fillings', 'frosting', 'dough', 'decorating', 'delivery', 'other')),
+  description TEXT NOT NULL,
+  due_date DATE,
+  is_completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "tasks_baker_all" ON tasks FOR ALL USING (auth.uid() = baker_id);
+
+-- Index for calendar queries
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(baker_id, due_date, is_completed);
+CREATE INDEX IF NOT EXISTS idx_tasks_order ON tasks(order_id);
+
+-- Apply updated_at trigger to tasks
+DROP TRIGGER IF EXISTS set_updated_at ON tasks;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
