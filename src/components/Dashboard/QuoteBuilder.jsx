@@ -1,22 +1,32 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useData } from '../../context/DataContext'
 import { useAuth } from '../../context/AuthContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   ArrowLeft, Plus, Trash2, Loader2, Send, CheckCircle,
-  XCircle, FileText, Calendar, Tag, User, ChevronDown
+  XCircle, FileText, Calendar, Tag, User, ChevronDown, Fee
 } from 'lucide-react'
 import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
 import './Builder.css'
 
 const EMPTY_ITEM = { description: '', quantity: 1, unit_price: 0, subtotal: 0, notes: '' }
+const EMPTY_FEE = { name: '', type: 'fixed', value: 0 }
+
+const FEE_PRESETS = [
+  { name: 'Rush Fee', type: 'fixed' },
+  { name: 'Delivery Fee', type: 'fixed' },
+  { name: 'Setup Fee', type: 'fixed' },
+  { name: 'Cake Cutting Fee', type: 'fixed' },
+  { name: 'Custom Fee', type: 'fixed' }
+]
 
 export default function QuoteBuilder() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getQuote, createQuote, updateQuote, getClients, getProducts } = useData()
+  const location = useLocation()
+  const { getQuote, createQuote, updateQuote, getClients, getProducts, getDiscountPresets } = useData()
   const { profile } = useAuth()
   const toast = useToast()
   const configured = isSupabaseConfigured()
@@ -26,6 +36,7 @@ export default function QuoteBuilder() {
   const [saving, setSaving] = useState(false)
   const [clients, setClients] = useState([])
   const [products, setProducts] = useState([])
+  const [discountPresets, setDiscountPresets] = useState([])
   const [showProductPicker, setShowProductPicker] = useState(null)
 
   // Form state
@@ -40,18 +51,84 @@ export default function QuoteBuilder() {
   const [discountValue, setDiscountValue] = useState(0)
   const [status, setStatus] = useState('draft')
   const [items, setItems] = useState([{ ...EMPTY_ITEM }])
+  const [fees, setFees] = useState([])
   const [quoteNumber, setQuoteNumber] = useState('')
+
+  // Auto-save state
+  const autoSaveRef = useRef(null)
+  const lastSavedRef = useRef(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   useEffect(() => {
     loadInitialData()
   }, [id, configured])
 
+  // Auto-save to localStorage
+  const getFormState = useCallback(() => ({
+    clientId, title, notes, internalNotes, validUntil, eventDate,
+    taxRate, discountType, discountValue, items, fees
+  }), [clientId, title, notes, internalNotes, validUntil, eventDate, taxRate, discountType, discountValue, items, fees])
+
+  useEffect(() => {
+    if (!isEdit && configured) {
+      const state = getFormState()
+      const stateHash = JSON.stringify(state)
+      if (lastSavedRef.current !== stateHash) {
+        setHasUnsavedChanges(true)
+        if (autoSaveRef.current) clearTimeout(autoSaveRef.current)
+        autoSaveRef.current = setTimeout(() => {
+          localStorage.setItem('quote_draft', JSON.stringify(state))
+          lastSavedRef.current = stateHash
+          setHasUnsavedChanges(false)
+        }, 5000)
+      }
+    }
+    return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current) }
+  }, [getFormState, isEdit, configured])
+
+  // Restore draft on mount
+  useEffect(() => {
+    if (!isEdit && !id) {
+      const saved = localStorage.getItem('quote_draft')
+      if (saved) {
+        try {
+          const draft = JSON.parse(saved)
+          setClientId(draft.clientId || '')
+          setTitle(draft.title || '')
+          setNotes(draft.notes || '')
+          setInternalNotes(draft.internalNotes || '')
+          setValidUntil(draft.validUntil || '')
+          setEventDate(draft.eventDate || '')
+          setTaxRate(draft.taxRate || 0)
+          setDiscountType(draft.discountType || 'fixed')
+          setDiscountValue(draft.discountValue || 0)
+          setItems(draft.items?.length ? draft.items : [{ ...EMPTY_ITEM }])
+          setFees(draft.fees || [])
+        } catch {}
+      }
+      if (!validUntil) {
+        const d = new Date()
+        d.setDate(d.getDate() + 14)
+        setValidUntil(d.toISOString().split('T')[0])
+      }
+    }
+  }, [isEdit, id, validUntil])
+
+  const clearDraft = () => {
+    localStorage.removeItem('quote_draft')
+    lastSavedRef.current = null
+    setHasUnsavedChanges(false)
+  }
+
   const loadInitialData = async () => {
     if (configured) {
       try {
-        const [clientData, productData] = await Promise.all([getClients(), getProducts()])
+        const [clientData, productData, presetData] = await Promise.all([
+          getClients(), getProducts(), getDiscountPresets()
+        ])
         setClients(clientData)
         setProducts(productData)
+        setDiscountPresets(presetData)
       } catch {}
     }
 
@@ -70,6 +147,7 @@ export default function QuoteBuilder() {
         setDiscountValue(quote.discount_value || 0)
         setStatus(quote.status || 'draft')
         setQuoteNumber(quote.quote_number || '')
+        setFees(quote.fees || [])
         setItems(quote.quote_items?.length ? quote.quote_items.map(i => ({
           description: i.description,
           quantity: i.quantity,
@@ -86,10 +164,6 @@ export default function QuoteBuilder() {
       }
     } else {
       setLoading(false)
-      // Default valid_until to 14 days from now
-      const d = new Date()
-      d.setDate(d.getDate() + 14)
-      setValidUntil(d.toISOString().split('T')[0])
     }
   }
 
@@ -108,6 +182,22 @@ export default function QuoteBuilder() {
 
   const addItem = () => setItems(prev => [...prev, { ...EMPTY_ITEM }])
   const removeItem = (i) => setItems(prev => prev.filter((_, idx) => idx !== i))
+
+  // Fee management
+  const addFee = () => setFees(prev => [...prev, { ...EMPTY_FEE }])
+  const removeFee = (i) => setFees(prev => prev.filter((_, idx) => idx !== i))
+  const updateFee = (i, field, val) => {
+    setFees(prev => {
+      const next = [...prev]
+      next[i] = { ...next[i], [field]: val }
+      return next
+    })
+  }
+
+  const applyDiscountPreset = (preset) => {
+    setDiscountType(preset.discount_type)
+    setDiscountValue(preset.discount_value)
+  }
 
   const addFromProduct = (itemIdx, product) => {
     setItems(prev => {
@@ -130,9 +220,21 @@ export default function QuoteBuilder() {
   const discountAmount = discountType === 'percent'
     ? subtotal * (parseFloat(discountValue) || 0) / 100
     : parseFloat(discountValue) || 0
-  const taxableAmount = subtotal - discountAmount
+  const subtotalAfterDiscount = subtotal - discountAmount
+
+  // Calculate fees (fixed or percentage)
+  const feesTotal = fees.reduce((sum, fee) => {
+    if (!fee.name) return sum
+    const val = parseFloat(fee.value) || 0
+    if (fee.type === 'percent') {
+      return sum + (subtotalAfterDiscount * val / 100)
+    }
+    return sum + val
+  }, 0)
+
+  const taxableAmount = subtotalAfterDiscount
   const taxAmount = taxableAmount * (parseFloat(taxRate) || 0) / 100
-  const total = taxableAmount + taxAmount
+  const total = taxableAmount + taxAmount + feesTotal
 
   const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
 
@@ -147,6 +249,7 @@ export default function QuoteBuilder() {
       discount_type: discountType,
       discount_value: parseFloat(discountValue) || 0,
       discount_amount: discountAmount,
+      fees: fees.filter(f => f.name.trim()),
       tax_amount: taxAmount,
       subtotal,
       total,
@@ -165,9 +268,11 @@ export default function QuoteBuilder() {
       if (isEdit) {
         await updateQuote(id, { ...quoteData, ...(newStatus && { sent_at: newStatus === 'sent' ? new Date().toISOString() : undefined }) }, lineItems)
         toast.success(newStatus === 'sent' ? 'Quote sent!' : 'Quote saved')
+        clearDraft()
       } else {
         const q = await createQuote(quoteData, lineItems)
         toast.success('Quote created')
+        clearDraft()
         navigate(`/dashboard/quotes/${q.id}`, { replace: true })
       }
       if (newStatus) setStatus(newStatus)
@@ -195,6 +300,11 @@ export default function QuoteBuilder() {
           {isEdit && <StatusBadge status={status} />}
         </div>
         <div className="builder-header-actions">
+          {!isEdit && hasUnsavedChanges && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--warning)', marginRight: '8px' }}>
+              Auto-saved draft
+            </span>
+          )}
           <button className="btn btn-ghost btn-sm" onClick={() => handleSave()} disabled={saving}>
             {saving ? <Loader2 size={15} className="spinner" /> : null}
             Save Draft
@@ -341,6 +451,27 @@ export default function QuoteBuilder() {
               </div>
             </div>
           </div>
+
+          <div className="card card-padding builder-section">
+            <div className="builder-section-title"><Fee size={14} /> Additional Fees</div>
+            <div className="fees-list">
+              {fees.map((fee, i) => (
+                <div key={i} className="fee-row" style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                  <select className="form-select" style={{ flex: 2 }} value={fee.name} onChange={(e) => updateFee(i, 'name', e.target.value)}>
+                    <option value="">Select fee type…</option>
+                    {FEE_PRESETS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+                  </select>
+                  <select className="form-select" style={{ width: '80px' }} value={fee.type} onChange={(e) => updateFee(i, 'type', e.target.value)}>
+                    <option value="fixed">$</option>
+                    <option value="percent">%</option>
+                  </select>
+                  <input className="form-input" type="number" min="0" style={{ width: '100px' }} value={fee.value} onChange={(e) => updateFee(i, 'value', e.target.value)} placeholder="0" />
+                  <button className="btn btn-ghost btn-sm" onClick={() => removeFee(i)}><Trash2 size={14} /></button>
+                </div>
+              ))}
+              <button className="btn btn-ghost btn-sm" onClick={addFee}><Plus size={14} /> Add Fee</button>
+            </div>
+          </div>
         </div>
 
         {/* Sidebar summary */}
@@ -352,6 +483,17 @@ export default function QuoteBuilder() {
             <div className="summary-discount">
               <div className="form-group">
                 <label className="form-label">Discount</label>
+                {discountPresets.length > 0 && (
+                  <select className="form-select" style={{ marginBottom: '8px' }} onChange={(e) => {
+                    const p = discountPresets.find(d => d.id === e.target.value)
+                    if (p) applyDiscountPreset(p)
+                  }}>
+                    <option value="">Quick select preset…</option>
+                    {discountPresets.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.discount_type === 'percent' ? p.discount_value + '%' : '$' + p.discount_value})</option>
+                    ))}
+                  </select>
+                )}
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <select className="form-select" style={{ width: '80px' }} value={discountType} onChange={(e) => setDiscountType(e.target.value)}>
                     <option value="fixed">$</option>
@@ -367,6 +509,22 @@ export default function QuoteBuilder() {
                 <span>Discount</span>
                 <span>−{fmt(discountAmount)}</span>
               </div>
+            )}
+
+            {fees.length > 0 && fees.some(f => f.name) && (
+              <>
+                <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--border)' }}>
+                  {fees.filter(f => f.name).map((fee, i) => {
+                    const val = parseFloat(fee.value) || 0
+                    const amount = fee.type === 'percent' ? (subtotalAfterDiscount * val / 100) : val
+                    return (
+                      <div key={i} className="summary-row" style={{ fontSize: '0.875rem' }}>
+                        <span>{fee.name}</span><span>{fmt(amount)}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
             )}
 
             <div className="summary-tax">

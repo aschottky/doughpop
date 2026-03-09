@@ -436,3 +436,65 @@ BEGIN
   ON CONFLICT DO NOTHING;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- ============================================================================
+-- PHASE 1 FEATURES: Fees, Discounts, Archiving, Invoice Notes
+-- ============================================================================
+
+-- DISCOUNT PRESETS (saved discount templates per baker)
+CREATE TABLE IF NOT EXISTS discount_presets (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  discount_type TEXT NOT NULL CHECK (discount_type IN ('fixed','percent')),
+  discount_value DECIMAL(10,2) NOT NULL DEFAULT 0,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE discount_presets ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "discount_presets_baker_all" ON discount_presets FOR ALL USING (auth.uid() = baker_id);
+
+-- Add fees JSONB and is_archived to quotes
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS fees JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;
+
+-- Add fees JSONB, is_archived, and internal_notes to invoices
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS fees JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS internal_notes TEXT;
+
+-- Add is_archived to orders
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_quotes_archived ON quotes(baker_id, is_archived);
+CREATE INDEX IF NOT EXISTS idx_invoices_archived ON invoices(baker_id, is_archived);
+CREATE INDEX IF NOT EXISTS idx_orders_archived ON orders(baker_id, is_archived);
+CREATE INDEX IF NOT EXISTS idx_quotes_status_date ON quotes(baker_id, status, valid_until);
+CREATE INDEX IF NOT EXISTS idx_invoices_status_date ON invoices(baker_id, status, due_date);
+
+-- Trigger to auto-expire old quotes (can be called via cron or on load)
+CREATE OR REPLACE FUNCTION expire_old_quotes()
+RETURNS INTEGER AS $$
+DECLARE
+  expired_count INTEGER;
+BEGIN
+  UPDATE quotes
+  SET status = 'expired',
+      updated_at = NOW()
+  WHERE status = 'sent'
+    AND valid_until < CURRENT_DATE - INTERVAL '14 days'
+    AND is_archived = FALSE;
+  
+  GET DIAGNOSTICS expired_count = ROW_COUNT;
+  RETURN expired_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Apply updated_at trigger to discount_presets
+DROP TRIGGER IF EXISTS set_updated_at ON discount_presets;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON discount_presets FOR EACH ROW EXECUTE FUNCTION update_updated_at();

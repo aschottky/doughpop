@@ -114,15 +114,128 @@ export function DataProvider({ children }) {
     return data
   }, [q, user])
 
-  // ─── Quotes ────────────────────────────────────────────────────────────────
+  // ─── Discount Presets ────────────────────────────────────────────────────
 
-  const getQuotes = useCallback(async () => {
-    const { data, error } = await q('quotes')
-      .select('*, clients(first_name, last_name, email)')
+  const getDiscountPresets = useCallback(async () => {
+    const { data, error } = await q('discount_presets')
+      .select('*')
       .eq('baker_id', user.id)
-      .order('created_at', { ascending: false })
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
     if (error) throw error
     return data || []
+  }, [q, user])
+
+  const createDiscountPreset = useCallback(async (presetData) => {
+    const { data, error } = await q('discount_presets')
+      .insert({ ...presetData, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateDiscountPreset = useCallback(async (id, updates) => {
+    const { data, error } = await q('discount_presets')
+      .update(updates)
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteDiscountPreset = useCallback(async (id) => {
+    const { error } = await q('discount_presets')
+      .delete()
+      .eq('id', id)
+      .eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Quotes ────────────────────────────────────────────────────────────────
+
+  const getQuotes = useCallback(async (includeArchived = false) => {
+    let query = q('quotes')
+      .select('*, clients(first_name, last_name, email)')
+      .eq('baker_id', user.id)
+    if (!includeArchived) {
+      query = query.eq('is_archived', false)
+    }
+    const { data, error } = await query.order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const archiveQuote = useCallback(async (id, isArchived = true) => {
+    const { data, error } = await q('quotes')
+      .update({ is_archived: isArchived })
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const duplicateQuote = useCallback(async (quoteId) => {
+    const { data: original } = await q('quotes')
+      .select('*, quote_items(*)')
+      .eq('id', quoteId)
+      .eq('baker_id', user.id)
+      .single()
+
+    if (!original) throw new Error('Quote not found')
+
+    const { data: numData } = await supabase.rpc('next_quote_number', { baker: user.id })
+
+    const newQuote = {
+      client_id: original.client_id,
+      title: original.title ? `${original.title} (Copy)` : 'Copy of Quote',
+      notes: original.notes,
+      internal_notes: original.internal_notes,
+      fees: original.fees,
+      subtotal: original.subtotal,
+      discount_type: original.discount_type,
+      discount_value: original.discount_value,
+      discount_amount: original.discount_amount,
+      tax_rate: original.tax_rate,
+      tax_amount: original.tax_amount,
+      total: original.total,
+      valid_until: null,
+      event_date: original.event_date,
+      status: 'draft'
+    }
+
+    const { data: quote, error } = await q('quotes')
+      .insert({
+        ...newQuote,
+        baker_id: user.id,
+        quote_number: numData || `Q-${Date.now()}`
+      })
+      .select()
+      .single()
+    if (error) throw error
+
+    const items = original.quote_items || []
+    if (items.length > 0) {
+      const lineItems = items.map((item, i) => ({
+        quote_id: quote.id,
+        baker_id: user.id,
+        product_id: item.product_id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+        notes: item.notes,
+        sort_order: i
+      }))
+      const { error: itemsError } = await q('quote_items').insert(lineItems)
+      if (itemsError) throw itemsError
+    }
+
+    return quote
   }, [q, user])
 
   const getQuote = useCallback(async (id) => {
@@ -187,19 +300,96 @@ export function DataProvider({ children }) {
   }, [q, user])
 
   const deleteQuote = useCallback(async (id) => {
-    const { error } = await q('quotes').delete().eq('id', id).eq('baker_id', user.id)
+    const { error } = await q('quotes')
+      .update({ is_archived: true })
+      .eq('id', id)
+      .eq('baker_id', user.id)
     if (error) throw error
   }, [q, user])
 
   // ─── Invoices ──────────────────────────────────────────────────────────────
 
-  const getInvoices = useCallback(async () => {
-    const { data, error } = await q('invoices')
+  const getInvoices = useCallback(async (includeArchived = false) => {
+    let query = q('invoices')
       .select('*, clients(first_name, last_name, email)')
       .eq('baker_id', user.id)
-      .order('created_at', { ascending: false })
+    if (!includeArchived) {
+      query = query.eq('is_archived', false)
+    }
+    const { data, error } = await query.order('created_at', { ascending: false })
     if (error) throw error
     return data || []
+  }, [q, user])
+
+  const archiveInvoice = useCallback(async (id, isArchived = true) => {
+    const { data, error } = await q('invoices')
+      .update({ is_archived: isArchived })
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const duplicateInvoice = useCallback(async (invoiceId) => {
+    const { data: original } = await q('invoices')
+      .select('*, invoice_items(*)')
+      .eq('id', invoiceId)
+      .eq('baker_id', user.id)
+      .single()
+
+    if (!original) throw new Error('Invoice not found')
+
+    const { data: numData } = await supabase.rpc('next_invoice_number', { baker: user.id })
+
+    const newInvoice = {
+      client_id: original.client_id,
+      title: original.title ? `${original.title} (Copy)` : 'Copy of Invoice',
+      notes: original.notes,
+      internal_notes: original.internal_notes,
+      fees: original.fees,
+      payment_terms: original.payment_terms,
+      subtotal: original.subtotal,
+      discount_type: original.discount_type,
+      discount_value: original.discount_value,
+      discount_amount: original.discount_amount,
+      tax_rate: original.tax_rate,
+      tax_amount: original.tax_amount,
+      total: original.total,
+      due_date: null,
+      event_date: original.event_date,
+      status: 'draft'
+    }
+
+    const { data: invoice, error } = await q('invoices')
+      .insert({
+        ...newInvoice,
+        baker_id: user.id,
+        invoice_number: numData || `INV-${Date.now()}`
+      })
+      .select()
+      .single()
+    if (error) throw error
+
+    const items = original.invoice_items || []
+    if (items.length > 0) {
+      const lineItems = items.map((item, i) => ({
+        invoice_id: invoice.id,
+        baker_id: user.id,
+        product_id: item.product_id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.subtotal,
+        notes: item.notes,
+        sort_order: i
+      }))
+      const { error: itemsError } = await q('invoice_items').insert(lineItems)
+      if (itemsError) throw itemsError
+    }
+
+    return invoice
   }, [q, user])
 
   const getInvoice = useCallback(async (id) => {
@@ -263,7 +453,10 @@ export function DataProvider({ children }) {
   }, [q, user])
 
   const deleteInvoice = useCallback(async (id) => {
-    const { error } = await q('invoices').delete().eq('id', id).eq('baker_id', user.id)
+    const { error } = await q('invoices')
+      .update({ is_archived: true })
+      .eq('id', id)
+      .eq('baker_id', user.id)
     if (error) throw error
   }, [q, user])
 
@@ -360,10 +553,14 @@ export function DataProvider({ children }) {
     getProducts, createProduct, updateProduct, deleteProduct,
     // Categories
     getCategories, createCategory,
+    // Discount Presets
+    getDiscountPresets, createDiscountPreset, updateDiscountPreset, deleteDiscountPreset,
     // Quotes
     getQuotes, getQuote, createQuote, updateQuote, deleteQuote,
+    archiveQuote, duplicateQuote,
     // Invoices
     getInvoices, getInvoice, createInvoice, updateInvoice, deleteInvoice,
+    archiveInvoice, duplicateInvoice,
     // Store
     getStore, saveStore,
     // Orders
