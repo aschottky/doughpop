@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
@@ -25,6 +25,7 @@ export default function InvoiceBuilder() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { getInvoice, createInvoice, updateInvoice, getClients, getProducts, getQuote, getDiscountPresets } = useData()
   const toast = useToast()
   const configured = isSupabaseConfigured()
@@ -88,23 +89,31 @@ export default function InvoiceBuilder() {
   // Restore draft on mount
   useEffect(() => {
     if (!isEdit && !id) {
-      const saved = localStorage.getItem('invoice_draft')
-      if (saved) {
-        try {
-          const draft = JSON.parse(saved)
-          setClientId(draft.clientId || '')
-          setTitle(draft.title || '')
-          setNotes(draft.notes || '')
-          setInternalNotes(draft.internalNotes || '')
-          setPaymentTerms(draft.paymentTerms || 'Due on receipt')
-          setDueDate(draft.dueDate || '')
-          setEventDate(draft.eventDate || '')
-          setTaxRate(draft.taxRate || 0)
-          setDiscountType(draft.discountType || 'fixed')
-          setDiscountValue(draft.discountValue || 0)
-          setItems(draft.items?.length ? draft.items : [{ ...EMPTY_ITEM }])
-          setFees(draft.fees || [])
-        } catch {}
+      const clientFromQuery = searchParams.get('client')
+      if (clientFromQuery) {
+        setClientId(clientFromQuery)
+        const newParams = new URLSearchParams(searchParams)
+        newParams.delete('client')
+        setSearchParams(newParams, { replace: true })
+      } else {
+        const saved = localStorage.getItem('invoice_draft')
+        if (saved) {
+          try {
+            const draft = JSON.parse(saved)
+            setClientId(draft.clientId || '')
+            setTitle(draft.title || '')
+            setNotes(draft.notes || '')
+            setInternalNotes(draft.internalNotes || '')
+            setPaymentTerms(draft.paymentTerms || 'Due on receipt')
+            setDueDate(draft.dueDate || '')
+            setEventDate(draft.eventDate || '')
+            setTaxRate(draft.taxRate || 0)
+            setDiscountType(draft.discountType || 'fixed')
+            setDiscountValue(draft.discountValue || 0)
+            setItems(draft.items?.length ? draft.items : [{ ...EMPTY_ITEM }])
+            setFees(draft.fees || [])
+          } catch {}
+        }
       }
       if (!dueDate) {
         const d = new Date()
@@ -112,7 +121,7 @@ export default function InvoiceBuilder() {
         setDueDate(d.toISOString().split('T')[0])
       }
     }
-  }, [isEdit, id, dueDate])
+  }, [isEdit, id, dueDate, searchParams, setSearchParams])
 
   const clearDraft = () => {
     localStorage.removeItem('invoice_draft')

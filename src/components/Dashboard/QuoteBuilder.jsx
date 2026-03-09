@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useData } from '../../context/DataContext'
 import { useAuth } from '../../context/AuthContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
@@ -26,6 +26,7 @@ export default function QuoteBuilder() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { getQuote, createQuote, updateQuote, getClients, getProducts, getDiscountPresets } = useData()
   const { profile } = useAuth()
   const toast = useToast()
@@ -86,25 +87,34 @@ export default function QuoteBuilder() {
     return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current) }
   }, [getFormState, isEdit, configured])
 
-  // Restore draft on mount
+  // Restore draft on mount or set client from query param
   useEffect(() => {
     if (!isEdit && !id) {
-      const saved = localStorage.getItem('quote_draft')
-      if (saved) {
-        try {
-          const draft = JSON.parse(saved)
-          setClientId(draft.clientId || '')
-          setTitle(draft.title || '')
-          setNotes(draft.notes || '')
-          setInternalNotes(draft.internalNotes || '')
-          setValidUntil(draft.validUntil || '')
-          setEventDate(draft.eventDate || '')
-          setTaxRate(draft.taxRate || 0)
-          setDiscountType(draft.discountType || 'fixed')
-          setDiscountValue(draft.discountValue || 0)
-          setItems(draft.items?.length ? draft.items : [{ ...EMPTY_ITEM }])
-          setFees(draft.fees || [])
-        } catch {}
+      const clientFromQuery = searchParams.get('client')
+      if (clientFromQuery) {
+        setClientId(clientFromQuery)
+        // Remove client from URL after setting it
+        const newParams = new URLSearchParams(searchParams)
+        newParams.delete('client')
+        setSearchParams(newParams, { replace: true })
+      } else {
+        const saved = localStorage.getItem('quote_draft')
+        if (saved) {
+          try {
+            const draft = JSON.parse(saved)
+            setClientId(draft.clientId || '')
+            setTitle(draft.title || '')
+            setNotes(draft.notes || '')
+            setInternalNotes(draft.internalNotes || '')
+            setValidUntil(draft.validUntil || '')
+            setEventDate(draft.eventDate || '')
+            setTaxRate(draft.taxRate || 0)
+            setDiscountType(draft.discountType || 'fixed')
+            setDiscountValue(draft.discountValue || 0)
+            setItems(draft.items?.length ? draft.items : [{ ...EMPTY_ITEM }])
+            setFees(draft.fees || [])
+          } catch {}
+        }
       }
       if (!validUntil) {
         const d = new Date()
@@ -112,7 +122,7 @@ export default function QuoteBuilder() {
         setValidUntil(d.toISOString().split('T')[0])
       }
     }
-  }, [isEdit, id, validUntil])
+  }, [isEdit, id, validUntil, searchParams, setSearchParams])
 
   const clearDraft = () => {
     localStorage.removeItem('quote_draft')
