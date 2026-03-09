@@ -2,37 +2,64 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
-import { Plus, Search, Receipt, Trash2 } from 'lucide-react'
+import { Plus, Search, Receipt, Trash2, Archive, Copy, RotateCcw } from 'lucide-react'
 import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
 import './QuoteList.css'
 
 const DEMO_INVOICES = [
-  { id: '1', invoice_number: 'INV-0001', clients: { first_name: 'Emma', last_name: 'Rodriguez' }, title: 'Baby shower dessert table', total: 680, status: 'paid', due_date: '2026-02-15', created_at: new Date().toISOString() },
-  { id: '2', invoice_number: 'INV-0002', clients: { first_name: 'Tom', last_name: 'Wilson' }, title: 'Corporate cookies', total: 165, status: 'overdue', due_date: '2026-02-01', created_at: new Date(Date.now() - 86400000).toISOString() },
-  { id: '3', invoice_number: 'INV-0003', clients: { first_name: 'Sarah', last_name: 'Thompson' }, title: 'Wedding cake', total: 545, status: 'sent', due_date: '2026-03-10', created_at: new Date(Date.now() - 172800000).toISOString() },
+  { id: '1', invoice_number: 'INV-0001', clients: { first_name: 'Emma', last_name: 'Rodriguez' }, title: 'Baby shower dessert table', total: 680, status: 'paid', due_date: '2026-02-15', created_at: new Date().toISOString(), is_archived: false },
+  { id: '2', invoice_number: 'INV-0002', clients: { first_name: 'Tom', last_name: 'Wilson' }, title: 'Corporate cookies', total: 165, status: 'overdue', due_date: '2026-02-01', created_at: new Date(Date.now() - 86400000).toISOString(), is_archived: false },
+  { id: '3', invoice_number: 'INV-0003', clients: { first_name: 'Sarah', last_name: 'Thompson' }, title: 'Wedding cake', total: 545, status: 'sent', due_date: '2026-03-10', created_at: new Date(Date.now() - 172800000).toISOString(), is_archived: false },
 ]
 
 export default function InvoiceList() {
   const navigate = useNavigate()
-  const { getInvoices, deleteInvoice } = useData()
+  const { getInvoices, deleteInvoice, archiveInvoice, duplicateInvoice } = useData()
   const toast = useToast()
   const configured = isSupabaseConfigured()
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     if (!configured) { setInvoices(DEMO_INVOICES); setLoading(false); return }
-    getInvoices().then(setInvoices).catch(() => setInvoices(DEMO_INVOICES)).finally(() => setLoading(false))
-  }, [configured])
+    getInvoices(showArchived).then(setInvoices).catch(() => setInvoices(DEMO_INVOICES)).finally(() => setLoading(false))
+  }, [configured, showArchived])
 
   const handleDelete = async (e, id) => {
     e.stopPropagation()
-    if (!window.confirm('Delete this invoice?')) return
-    try { await deleteInvoice(id); setInvoices(prev => prev.filter(i => i.id !== id)); toast.success('Invoice deleted') }
-    catch { toast.error('Failed to delete') }
+    if (!window.confirm('Archive this invoice?')) return
+    try { await deleteInvoice(id); setInvoices(prev => prev.filter(i => i.id !== id)); toast.success('Invoice archived') }
+    catch { toast.error('Failed to archive') }
+  }
+
+  const handleDuplicate = async (e, id) => {
+    e.stopPropagation()
+    try {
+      const newInvoice = await duplicateInvoice(id)
+      setInvoices(prev => [newInvoice, ...prev])
+      toast.success('Invoice duplicated')
+      navigate(`/dashboard/invoices/${newInvoice.id}`)
+    } catch {
+      toast.error('Failed to duplicate invoice')
+    }
+  }
+
+  const handleArchiveToggle = async (e, id, isArchived) => {
+    e.stopPropagation()
+    try {
+      await archiveInvoice(id, !isArchived)
+      setInvoices(prev => prev.map(i => i.id === id ? { ...i, is_archived: !isArchived } : i))
+      toast.success(isArchived ? 'Invoice restored' : 'Invoice archived')
+      if (!showArchived) {
+        setInvoices(prev => prev.filter(i => i.id !== id))
+      }
+    } catch {
+      toast.error('Failed to update invoice')
+    }
   }
 
   const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
@@ -43,7 +70,8 @@ export default function InvoiceList() {
     const matchSearch = !search || inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
       client.includes(search.toLowerCase()) || (inv.title || '').toLowerCase().includes(search.toLowerCase())
     const matchFilter = filter === 'all' || inv.status === filter
-    return matchSearch && matchFilter
+    const matchArchive = showArchived ? inv.is_archived : !inv.is_archived
+    return matchSearch && matchFilter && matchArchive
   })
 
   const statuses = ['all', 'draft', 'sent', 'paid', 'overdue', 'cancelled']
@@ -66,6 +94,13 @@ export default function InvoiceList() {
             {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
           </button>
         ))}
+        <button
+          className={`quote-filter-btn ${showArchived ? 'active' : ''}`}
+          onClick={() => setShowArchived(!showArchived)}
+          style={{ marginLeft: 'auto' }}
+        >
+          <Archive size={14} /> {showArchived ? 'Showing Archived' : 'Show Archived'}
+        </button>
       </div>
 
       <div className="data-table">
@@ -115,9 +150,32 @@ export default function InvoiceList() {
                     {fmtDate(inv.due_date)}
                   </td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <button style={{ background: 'none', color: 'var(--text-muted)' }} onClick={(e) => handleDelete(e, inv.id)} title="Delete">
-                      <Trash2 size={15} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                      <button
+                        className="table-action-btn"
+                        style={{ background: 'none', color: 'var(--text-muted)' }}
+                        onClick={(e) => handleDuplicate(e, inv.id)}
+                        title="Duplicate"
+                      >
+                        <Copy size={15} />
+                      </button>
+                      <button
+                        className="table-action-btn"
+                        style={{ background: 'none', color: inv.is_archived ? 'var(--success)' : 'var(--text-muted)' }}
+                        onClick={(e) => handleArchiveToggle(e, inv.id, inv.is_archived)}
+                        title={inv.is_archived ? 'Restore' : 'Archive'}
+                      >
+                        {inv.is_archived ? <RotateCcw size={15} /> : <Archive size={15} />}
+                      </button>
+                      <button
+                        className="table-action-btn btn-danger"
+                        style={{ background: 'none', color: 'var(--error)' }}
+                        onClick={(e) => handleDelete(e, inv.id)}
+                        title="Archive"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
