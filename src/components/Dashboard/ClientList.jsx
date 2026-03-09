@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
-import { Plus, Search, Mail, Phone, Trash2, Edit2, Loader2 } from 'lucide-react'
+import { Plus, Search, Mail, Phone, Trash2, Edit2, Loader2, X } from 'lucide-react'
 import Modal from '../Shared/Modal'
 import { useToast } from '../Shared/Toast'
 import './ClientList.css'
@@ -207,6 +207,35 @@ export default function ClientList() {
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label className="form-label">Notes</label>
               <textarea className="form-textarea" value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Allergies, preferences, special instructions…" style={{ minHeight: '80px' }} />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label className="form-label">Tags</label>
+              <div className="tags-input" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)' }}>
+                {(form.tags || []).map((tag, i) => (
+                  <span key={i} className="tag-chip" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: 'var(--honey-light)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>
+                    {tag}
+                    <button type="button" onClick={() => setForm(f => ({ ...f, tags: f.tags.filter((_, idx) => idx !== i) }))} style={{ padding: '2px', lineHeight: 1 }}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  placeholder="Add tag and press Enter…"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const val = e.target.value.trim()
+                      if (val && !form.tags?.includes(val)) {
+                        setForm(f => ({ ...f, tags: [...(f.tags || []), val] }))
+                        e.target.value = ''
+                      }
+                    }
+                  }}
+                  style={{ flex: 1, minWidth: '120px', border: 'none', background: 'transparent', padding: '4px' }}
+                />
+              </div>
+              <p className="form-hint">Press Enter to add a tag (e.g., wedding, vip, corporate, birthday)</p>
             </div>
           </div>
           <div className="client-form-actions">

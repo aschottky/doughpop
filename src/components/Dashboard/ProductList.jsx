@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useData } from '../../context/DataContext'
 import { useSubscription } from '../../context/SubscriptionContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
-import { Plus, Search, Package, Edit2, Trash2, Loader2, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Package, Edit2, Trash2, Loader2, AlertTriangle, X } from 'lucide-react'
 import Modal from '../Shared/Modal'
 import { useToast } from '../Shared/Toast'
 import './ProductList.css'
@@ -50,7 +50,7 @@ export default function ProductList() {
       name: p.name || '', description: p.description || '', price: p.price || '',
       unit: p.unit || 'each', category_id: p.category_id || '',
       lead_time_days: p.lead_time_days || 2, min_quantity: p.min_quantity || 1,
-      serves: p.serves || '', allergens: p.allergens || [],
+      max_quantity: p.max_quantity || '', serves: p.serves || '', allergens: p.allergens || [],
       is_available: p.is_available !== false, is_featured: p.is_featured || false, tags: p.tags || []
     })
     setModalOpen(true)
@@ -209,6 +209,43 @@ export default function ProductList() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Min Quantity</label>
+              <input className="form-input" type="number" min="1" value={form.min_quantity || 1} onChange={(e) => setForm(f => ({ ...f, min_quantity: parseInt(e.target.value) || 1 }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Max Quantity</label>
+              <input className="form-input" type="number" min="1" value={form.max_quantity || ''} onChange={(e) => setForm(f => ({ ...f, max_quantity: e.target.value ? parseInt(e.target.value) : null }))} placeholder="No limit" />
+            </div>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label className="form-label">Tags</label>
+              <div className="tags-input" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)' }}>
+                {(form.tags || []).map((tag, i) => (
+                  <span key={i} className="tag-chip" style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 8px', background: 'var(--honey-light)', borderRadius: 'var(--radius-sm)', fontSize: '0.875rem' }}>
+                    {tag}
+                    <button type="button" onClick={() => setForm(f => ({ ...f, tags: f.tags.filter((_, idx) => idx !== i) }))} style={{ padding: '2px', lineHeight: 1 }}>
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  placeholder="Add tag and press Enter…"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const val = e.target.value.trim().toLowerCase()
+                      if (val && !form.tags?.includes(val)) {
+                        setForm(f => ({ ...f, tags: [...(f.tags || []), val] }))
+                        e.target.value = ''
+                      }
+                    }
+                  }}
+                  style={{ flex: 1, minWidth: '120px', border: 'none', background: 'transparent', padding: '4px' }}
+                />
+              </div>
+              <p className="form-hint">Press Enter to add a tag (e.g., custom, holiday, vegan)</p>
             </div>
             <div className="form-group">
               <label className="form-label" style={{ gap: '10px', cursor: 'pointer' }}>
