@@ -729,3 +729,105 @@ CREATE TABLE IF NOT EXISTS inventory_log (
 
 ALTER TABLE inventory_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "inventory_log_baker_all" ON inventory_log FOR ALL USING (auth.uid() = baker_id);
+
+
+-- ============================================================================
+-- PHASE 5 FEATURES: Client Experience (Inquiries, Templates, Birthday Reminders)
+-- ============================================================================
+
+-- TEMPLATES (care instructions, serving guides, etc.)
+CREATE TABLE IF NOT EXISTS templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  template_type TEXT NOT NULL CHECK (template_type IN ('care', 'serving', 'storage', 'custom')),
+  category TEXT, -- 'cake_care', 'cookie_care', 'storage', etc.
+  content TEXT NOT NULL,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "templates_baker_all" ON templates FOR ALL USING (auth.uid() = baker_id);
+
+DROP TRIGGER IF EXISTS set_updated_at ON templates;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON templates FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- INQUIRIES (customer inquiries from storefront)
+CREATE TABLE IF NOT EXISTS inquiries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  customer_name TEXT NOT NULL,
+  customer_email TEXT NOT NULL,
+  customer_phone TEXT,
+  event_date DATE,
+  event_type TEXT,
+  guest_count INTEGER,
+  budget DECIMAL(10,2),
+  product_interests TEXT[],
+  message TEXT,
+  status TEXT DEFAULT 'new' CHECK (status IN ('new', 'responded', 'converted', 'closed')),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "inquiries_baker_all" ON inquiries FOR ALL USING (auth.uid() = baker_id);
+
+DROP TRIGGER IF EXISTS set_updated_at ON inquiries;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON inquiries FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE INDEX IF NOT EXISTS idx_inquiries_baker ON inquiries(baker_id, status, created_at);
+
+-- Add important_dates to clients for birthday reminders
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS important_dates JSONB DEFAULT '[]';
+
+
+-- ============================================================================
+-- PHASE 6 FEATURES: Expense Tracking
+-- ============================================================================
+
+-- EXPENSES
+CREATE TABLE IF NOT EXISTS expenses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  vendor TEXT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  date DATE NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('ingredients', 'supplies', 'packaging', 'marketing', 'delivery', 'equipment', 'other')),
+  receipt_url TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "expenses_baker_all" ON expenses FOR ALL USING (auth.uid() = baker_id);
+
+DROP TRIGGER IF EXISTS set_updated_at ON expenses;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON expenses FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE INDEX IF NOT EXISTS idx_expenses_baker ON expenses(baker_id, date);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(baker_id, category);
+
+-- MILEAGE LOGS
+CREATE TABLE IF NOT EXISTS mileage_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  trip_date DATE NOT NULL,
+  miles DECIMAL(6,1) NOT NULL,
+  from_address TEXT,
+  to_address TEXT,
+  purpose TEXT,
+  rate DECIMAL(4,3) DEFAULT 0.67, -- IRS rate per mile (2024)
+  amount DECIMAL(8,2), -- calculated: miles * rate
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE mileage_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "mileage_logs_baker_all" ON mileage_logs FOR ALL USING (auth.uid() = baker_id);
+
+CREATE INDEX IF NOT EXISTS idx_mileage_baker ON mileage_logs(baker_id, trip_date);
