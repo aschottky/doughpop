@@ -4,7 +4,8 @@ import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   ArrowLeft, Plus, Trash2, Loader2, Send, CheckCircle,
-  XCircle, Calendar, Tag, User, ChevronDown, Fee, FileText
+  XCircle, Calendar, Tag, User, ChevronDown, Fee, FileText,
+  Clock, DollarSign, CreditCard
 } from 'lucide-react'
 import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
@@ -26,7 +27,7 @@ export default function InvoiceBuilder() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getInvoice, createInvoice, updateInvoice, getClients, getProducts, getQuote, getDiscountPresets } = useData()
+  const { getInvoice, createInvoice, updateInvoice, getClients, getProducts, getQuote, getDiscountPresets, getPayments, recordPayment, deletePayment, getStore } = useData()
   const toast = useToast()
   const configured = isSupabaseConfigured()
   const isEdit = !!id
@@ -53,6 +54,14 @@ export default function InvoiceBuilder() {
   const [fees, setFees] = useState([])
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [quoteId, setQuoteId] = useState(null)
+
+  // Payment & Time Tracking
+  const [payments, setPayments] = useState([])
+  const [hoursWorked, setHoursWorked] = useState(0)
+  const [hourlyRate, setHourlyRate] = useState(0)
+  const [store, setStore] = useState(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [newPayment, setNewPayment] = useState({ amount: '', method: 'cash', notes: '' })
 
   // Auto-save state
   const autoSaveRef = useRef(null)
@@ -166,7 +175,11 @@ export default function InvoiceBuilder() {
 
     if (isEdit && configured) {
       try {
-        const invoice = await getInvoice(id)
+        const [invoice, paymentsData, storeData] = await Promise.all([
+          getInvoice(id),
+          getPayments(id),
+          getStore()
+        ])
         if (!invoice) { toast.error('Invoice not found'); navigate('/dashboard/invoices'); return }
         setClientId(invoice.client_id || '')
         setTitle(invoice.title || '')
@@ -181,10 +194,14 @@ export default function InvoiceBuilder() {
         setStatus(invoice.status || 'draft')
         setInvoiceNumber(invoice.invoice_number || '')
         setFees(invoice.fees || [])
+        setHoursWorked(invoice.hours_worked || 0)
         setItems(invoice.invoice_items?.length ? invoice.invoice_items.map(i => ({
           description: i.description, quantity: i.quantity, unit_price: i.unit_price,
           subtotal: i.subtotal, notes: i.notes || '', product_id: i.product_id || null
         })) : [{ ...EMPTY_ITEM }])
+        setPayments(paymentsData || [])
+        setStore(storeData)
+        setHourlyRate(storeData?.hourly_rate || 0)
       } catch {
         toast.error('Failed to load invoice')
         navigate('/dashboard/invoices')
@@ -251,6 +268,8 @@ export default function InvoiceBuilder() {
   const taxableAmount = subtotalAfterDiscount
   const taxAmount = taxableAmount * (parseFloat(taxRate) || 0) / 100
   const total = taxableAmount + taxAmount + feesTotal
+  const laborCost = (parseFloat(hoursWorked) || 0) * (parseFloat(hourlyRate) || 0)
+  const grandTotal = total + laborCost
   const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
 
   const handleSave = async (newStatus) => {
@@ -262,7 +281,9 @@ export default function InvoiceBuilder() {
       tax_rate: parseFloat(taxRate) || 0, discount_type: discountType,
       discount_value: parseFloat(discountValue) || 0, discount_amount: discountAmount,
       fees: fees.filter(f => f.name.trim()),
-      tax_amount: taxAmount, subtotal, total, balance_due: total,
+      tax_amount: taxAmount, subtotal, total: grandTotal, balance_due: grandTotal,
+      hours_worked: parseFloat(hoursWorked) || 0,
+      labor_cost: laborCost,
       status: newStatus || status,
       ...(newStatus === 'sent' ? { sent_at: new Date().toISOString() } : {}),
       ...(newStatus === 'paid' ? { paid_at: new Date().toISOString(), amount_paid: total, balance_due: 0 } : {})
@@ -291,6 +312,57 @@ export default function InvoiceBuilder() {
       setSaving(false)
     }
   }
+
+  // Payment handling
+  const handleRecordPayment = async (e) => {
+    e.preventDefault()
+    if (!newPayment.amount || isNaN(newPayment.amount)) {
+      toast.error('Valid payment amount is required')
+      return
+    }
+    
+    try {
+      const payment = await recordPayment({
+        invoice_id: id,
+        amount: parseFloat(newPayment.amount),
+        method: newPayment.method,
+        notes: newPayment.notes
+      })
+      
+      setPayments(prev => [payment, ...prev])
+      setNewPayment({ amount: '', method: 'cash', notes: '' })
+      setShowPaymentModal(false)
+      toast.success('Payment recorded')
+      
+      // Refresh to get updated balance
+      const invoice = await getInvoice(id)
+      if (invoice) {
+        setStatus(invoice.status)
+      }
+    } catch {
+      toast.error('Failed to record payment')
+    }
+  }
+
+  const handleDeletePayment = async (paymentId, amount) => {
+    if (!window.confirm('Delete this payment record?')) return
+    try {
+      await deletePayment(paymentId, id, amount)
+      setPayments(prev => prev.filter(p => p.id !== paymentId))
+      toast.success('Payment deleted')
+      
+      // Refresh to get updated balance
+      const invoice = await getInvoice(id)
+      if (invoice) {
+        setStatus(invoice.status)
+      }
+    } catch {
+      toast.error('Failed to delete payment')
+    }
+  }
+
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0)
+  const balanceDue = grandTotal - totalPaid
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}><div className="loading-spinner" /></div>
 
@@ -484,7 +556,20 @@ export default function InvoiceBuilder() {
               </div>
             </div>
             {taxAmount > 0 && <div className="summary-row"><span>Tax</span><span>{fmt(taxAmount)}</span></div>}
-            <div className="summary-total"><span>Total</span><strong>{fmt(total)}</strong></div>
+            <div className="summary-total"><span>Subtotal</span><strong>{fmt(total)}</strong></div>
+            
+            {laborCost > 0 && (
+              <div className="summary-row" style={{ fontSize: '0.875rem' }}>
+                <span>Labor ({hoursWorked}h × ${hourlyRate}/hr)</span>
+                <span>{fmt(laborCost)}</span>
+              </div>
+            )}
+            
+            <div className="summary-grand-total">
+              <span>Grand Total</span>
+              <strong>{fmt(grandTotal)}</strong>
+            </div>
+
             {isEdit && (
               <div className="builder-status-actions">
                 {status === 'sent' && (
@@ -500,8 +585,146 @@ export default function InvoiceBuilder() {
               </div>
             )}
           </div>
+
+          {isEdit && (
+            <div className="card card-padding builder-payments">
+              <div className="builder-section-title"><DollarSign size={14} /> Payments</div>
+              <div className="payment-summary">
+                <div className="payment-row paid">
+                  <span>Total Paid</span>
+                  <strong>{fmt(totalPaid)}</strong>
+                </div>
+                <div className={`payment-row balance ${balanceDue > 0 ? 'due' : 'paid'}`}>
+                  <span>Balance Due</span>
+                  <strong>{fmt(balanceDue)}</strong>
+                </div>
+              </div>
+              
+              {payments.length > 0 && (
+                <div className="payment-history">
+                  {payments.map(payment => (
+                    <div key={payment.id} className="payment-item">
+                      <div className="payment-info">
+                        <span className="payment-method">
+                          <CreditCard size={12} />
+                          {payment.method}
+                        </span>
+                        <span className="payment-date">
+                          {new Date(payment.paid_at).toLocaleDateString()}
+                        </span>
+                        {payment.notes && <span className="payment-note">{payment.notes}</span>}
+                      </div>
+                      <div className="payment-amount">
+                        <strong>{fmt(payment.amount)}</strong>
+                        <button className="btn btn-ghost btn-xs" onClick={() => handleDeletePayment(payment.id, payment.amount)}>
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {balanceDue > 0 && (
+                <button className="btn btn-primary btn-sm" style={{ width: '100%', marginTop: '12px' }} onClick={() => setShowPaymentModal(true)}>
+                  <Plus size={14} /> Record Payment
+                </button>
+              )}
+            </div>
+          )}
+
+          {isEdit && (
+            <div className="card card-padding builder-time">
+              <div className="builder-section-title"><Clock size={14} /> Time Tracking</div>
+              <div className="time-inputs">
+                <div className="form-group">
+                  <label className="form-label">Hours Worked</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    min="0" 
+                    step="0.25"
+                    value={hoursWorked} 
+                    onChange={(e) => setHoursWorked(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Hourly Rate</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    min="0" 
+                    step="0.01"
+                    value={hourlyRate} 
+                    onChange={(e) => setHourlyRate(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              {laborCost > 0 && (
+                <div className="labor-cost-display">
+                  Labor Cost: <strong>{fmt(laborCost)}</strong>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {showPaymentModal && (
+        <div className="modal-overlay" onClick={() => setShowPaymentModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Record Payment</h3>
+              <button className="modal-close" onClick={() => setShowPaymentModal(false)}>×</button>
+            </div>
+            <form onSubmit={handleRecordPayment} className="payment-form">
+              <div className="form-group">
+                <label className="form-label">Amount *</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  min="0.01" 
+                  step="0.01"
+                  value={newPayment.amount} 
+                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                  placeholder={fmt(balanceDue)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Payment Method</label>
+                <select 
+                  className="form-select" 
+                  value={newPayment.method} 
+                  onChange={(e) => setNewPayment({ ...newPayment, method: e.target.value })}
+                >
+                  <option value="cash">Cash</option>
+                  <option value="check">Check</option>
+                  <option value="venmo">Venmo</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="stripe">Credit Card (Stripe)</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notes</label>
+                <input 
+                  className="form-input" 
+                  value={newPayment.notes} 
+                  onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })}
+                  placeholder="Check number, transaction ID, etc."
+                />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => setShowPaymentModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">Record Payment</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

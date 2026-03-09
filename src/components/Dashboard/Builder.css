@@ -259,6 +259,146 @@
 
 .builder-status-actions .btn { justify-content: center; }
 
+/* Payment Section */
+.builder-payments {
+  margin-top: 16px;
+}
+
+.payment-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.payment-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.payment-row.paid {
+  color: var(--success);
+}
+
+.payment-row.balance.due {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.payment-row.balance.paid {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.payment-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.payment-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+}
+
+.payment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.payment-method {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  color: var(--text-dark);
+}
+
+.payment-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.payment-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.payment-amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Time Tracking */
+.builder-time {
+  margin-top: 16px;
+}
+
+.time-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.labor-cost-display {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.labor-cost-display strong {
+  color: var(--text-dark);
+  font-size: 1.125rem;
+}
+
+/* Summary updates */
+.summary-grand-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 2px solid var(--border);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--text-dark);
+}
+
+/* Payment Modal */
+.payment-form {
+  padding: 20px;
+}
+
+.payment-form .form-group {
+  margin-bottom: 16px;
+}
+
+.payment-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.btn-xs {
+  padding: 4px;
+  font-size: 0.75rem;
+}
+
 @media (max-width: 900px) {
   .builder-body { grid-template-columns: 1fr; }
   .builder-sidebar { position: static; }

@@ -660,6 +660,131 @@ export function DataProvider({ children }) {
     return tasks.length
   }, [q, user])
 
+  // ─── Payments ────────────────────────────────────────────────────────────────
+
+  const getPayments = useCallback(async (invoiceId = null) => {
+    let query = q('payments')
+      .select('*')
+      .eq('baker_id', user.id)
+      .order('paid_at', { ascending: false })
+    
+    if (invoiceId) {
+      query = query.eq('invoice_id', invoiceId)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const recordPayment = useCallback(async (paymentData) => {
+    const { data, error } = await q('payments')
+      .insert({ ...paymentData, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+    
+    // Update invoice balance
+    const { data: invoice } = await q('invoices')
+      .select('amount_paid, total')
+      .eq('id', paymentData.invoice_id)
+      .single()
+    
+    const newAmountPaid = (parseFloat(invoice.amount_paid) || 0) + parseFloat(paymentData.amount)
+    const balanceDue = parseFloat(invoice.total) - newAmountPaid
+    
+    await q('invoices')
+      .update({ 
+        amount_paid: newAmountPaid, 
+        balance_due: balanceDue,
+        status: balanceDue <= 0 ? 'paid' : 'sent'
+      })
+      .eq('id', paymentData.invoice_id)
+      .eq('baker_id', user.id)
+    
+    return data
+  }, [q, user])
+
+  const deletePayment = useCallback(async (paymentId, invoiceId, amount) => {
+    const { error } = await q('payments')
+      .delete()
+      .eq('id', paymentId)
+      .eq('baker_id', user.id)
+    if (error) throw error
+    
+    // Update invoice balance
+    const { data: invoice } = await q('invoices')
+      .select('amount_paid, total')
+      .eq('id', invoiceId)
+      .single()
+    
+    const newAmountPaid = (parseFloat(invoice.amount_paid) || 0) - parseFloat(amount)
+    const balanceDue = parseFloat(invoice.total) - newAmountPaid
+    
+    await q('invoices')
+      .update({ 
+        amount_paid: newAmountPaid, 
+        balance_due: balanceDue,
+        status: newAmountPaid <= 0 ? 'sent' : 'paid'
+      })
+      .eq('id', invoiceId)
+      .eq('baker_id', user.id)
+  }, [q, user])
+
+  // ─── Email Log ───────────────────────────────────────────────────────────────
+
+  const logEmail = useCallback(async (emailData) => {
+    const { data, error } = await q('email_log')
+      .insert({ ...emailData, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const getEmailLog = useCallback(async (filters = {}) => {
+    let query = q('email_log')
+      .select('*')
+      .eq('baker_id', user.id)
+      .order('sent_at', { ascending: false })
+    
+    if (filters.type) {
+      query = query.eq('email_type', filters.type)
+    }
+    if (filters.invoiceId) {
+      query = query.eq('related_invoice_id', filters.invoiceId)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  // ─── Email Templates ───────────────────────────────────────────────────────
+
+  const getEmailTemplates = useCallback(async (type = null) => {
+    let query = q('email_templates')
+      .select('*')
+      .eq('baker_id', user.id)
+    
+    if (type) {
+      query = query.eq('template_type', type)
+    }
+    
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const saveEmailTemplate = useCallback(async (templateData) => {
+    const { data, error } = await q('email_templates')
+      .upsert({ ...templateData, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
   const value = {
     // Clients
     getClients, createClient, updateClient, deleteClient,
@@ -681,6 +806,10 @@ export function DataProvider({ children }) {
     getOrders, updateOrderStatus,
     // Tasks
     getTasks, createTask, updateTask, completeTask, deleteTask, generateTasksFromOrders,
+    // Payments
+    getPayments, recordPayment, deletePayment,
+    // Email
+    logEmail, getEmailLog, getEmailTemplates, saveEmailTemplate,
     // Stats
     getDashboardStats
   }

@@ -529,3 +529,81 @@ CREATE INDEX IF NOT EXISTS idx_tasks_order ON tasks(order_id);
 -- Apply updated_at trigger to tasks
 DROP TRIGGER IF EXISTS set_updated_at ON tasks;
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON tasks FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+
+-- ============================================================================
+-- PHASE 3 FEATURES: Payments, Email Log, Time Tracking
+-- ============================================================================
+
+-- PAYMENTS (track invoice payments)
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  amount DECIMAL(10,2) NOT NULL,
+  method TEXT NOT NULL CHECK (method IN ('stripe', 'venmo', 'paypal', 'cash', 'check', 'other')),
+  paid_at TIMESTAMPTZ DEFAULT NOW(),
+  notes TEXT,
+  reference_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "payments_baker_all" ON payments FOR ALL USING (auth.uid() = baker_id);
+
+CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_payments_baker ON payments(baker_id, paid_at);
+
+-- EMAIL LOG (track sent emails)
+CREATE TABLE IF NOT EXISTS email_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  recipient_email TEXT NOT NULL,
+  recipient_name TEXT,
+  email_type TEXT NOT NULL CHECK (email_type IN ('receipt', 'reminder', 'confirmation', 'birthday', 'custom')),
+  subject TEXT NOT NULL,
+  related_quote_id UUID REFERENCES quotes(id) ON DELETE SET NULL,
+  related_invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL,
+  related_order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  sent_at TIMESTAMPTZ DEFAULT NOW(),
+  status TEXT DEFAULT 'sent' CHECK (status IN ('sent', 'failed', 'bounced')),
+  error_message TEXT
+);
+
+ALTER TABLE email_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "email_log_baker_all" ON email_log FOR ALL USING (auth.uid() = baker_id);
+
+CREATE INDEX IF NOT EXISTS idx_email_log_baker ON email_log(baker_id, sent_at);
+
+-- EMAIL TEMPLATES (per baker)
+CREATE TABLE IF NOT EXISTS email_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  template_type TEXT NOT NULL CHECK (template_type IN ('receipt', 'reminder', 'confirmation', 'birthday', 'custom')),
+  subject TEXT NOT NULL,
+  body TEXT NOT NULL,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE email_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "email_templates_baker_all" ON email_templates FOR ALL USING (auth.uid() = baker_id);
+
+DROP TRIGGER IF EXISTS set_updated_at ON email_templates;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON email_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- Add hourly_rate to profiles
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(8,2) DEFAULT 0;
+
+-- Add hours_worked to orders and invoices
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS hours_worked DECIMAL(6,2) DEFAULT 0;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS hours_worked DECIMAL(6,2) DEFAULT 0;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS labor_cost DECIMAL(10,2) DEFAULT 0;
+
+-- Add payment method configuration to stores
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS venmo_username TEXT;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS paypal_email TEXT;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS accept_cash BOOLEAN DEFAULT TRUE;
+ALTER TABLE stores ADD COLUMN IF NOT EXISTS accept_check BOOLEAN DEFAULT TRUE;

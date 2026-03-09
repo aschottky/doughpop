@@ -204,6 +204,32 @@ export default function StoreSettings() {
         </div>
 
         <div className="card card-padding store-section">
+          <div className="store-section-title">Payment Methods</div>
+          <div className="store-form-grid">
+            <div className="form-group">
+              <label className="form-label">Venmo Username</label>
+              <input className="form-input" value={form.venmo_username || ''} onChange={(e) => set('venmo_username', e.target.value)} placeholder="@yourusername" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">PayPal Email</label>
+              <input className="form-input" type="email" value={form.paypal_email || ''} onChange={(e) => set('paypal_email', e.target.value)} placeholder="you@example.com" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ gap: '10px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.accept_cash !== false} onChange={(e) => set('accept_cash', e.target.checked)} />
+                Accept Cash
+              </label>
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ gap: '10px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.accept_check !== false} onChange={(e) => set('accept_check', e.target.checked)} />
+                Accept Checks
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-padding store-section">
           <div className="store-section-title">Visibility</div>
           <label className="store-publish-toggle">
             <input type="checkbox" checked={form.is_published} onChange={(e) => set('is_published', e.target.checked)} />
