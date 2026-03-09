@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useSubscription } from '../../context/SubscriptionContext'
 import {
   Croissant, LayoutDashboard, FileText, Receipt,
-  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare
+  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare, Archive
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -15,6 +15,7 @@ const navItems = [
   { icon: <Receipt size={19} />, label: 'Invoices', path: '/dashboard/invoices' },
   { icon: <Users size={19} />, label: 'Clients', path: '/dashboard/clients' },
   { icon: <Package size={19} />, label: 'Products', path: '/dashboard/products' },
+  { icon: <Archive size={19} />, label: 'Bundles', path: '/dashboard/bundles' },
   { icon: <Store size={19} />, label: 'My Store', path: '/dashboard/store' },
 ]
 

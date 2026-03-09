@@ -16,6 +16,7 @@ import Settings from './Settings'
 import Upgrade from './Upgrade'
 import Calendar from './Calendar'
 import TaskList from './TaskList'
+import Bundles from './Bundles'
 import './Dashboard.css'
 
 export default function Dashboard() {
@@ -57,6 +58,7 @@ export default function Dashboard() {
                 <Route path="upgrade" element={<Upgrade />} />
                 <Route path="calendar" element={<Calendar />} />
                 <Route path="tasks" element={<TaskList />} />
+                <Route path="bundles" element={<Bundles />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </div>
