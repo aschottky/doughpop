@@ -607,3 +607,125 @@ ALTER TABLE stores ADD COLUMN IF NOT EXISTS venmo_username TEXT;
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS paypal_email TEXT;
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS accept_cash BOOLEAN DEFAULT TRUE;
 ALTER TABLE stores ADD COLUMN IF NOT EXISTS accept_check BOOLEAN DEFAULT TRUE;
+
+
+-- ============================================================================
+-- PHASE 4 FEATURES: Inventory, Recipes, Bundles
+-- ============================================================================
+
+-- INGREDIENTS (inventory items)
+CREATE TABLE IF NOT EXISTS ingredients (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT,
+  unit TEXT NOT NULL, -- e.g., 'lbs', 'cups', 'each', 'oz'
+  unit_cost DECIMAL(10,4),
+  stock_quantity DECIMAL(10,2) DEFAULT 0,
+  reorder_point DECIMAL(10,2) DEFAULT 0,
+  supplier TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "ingredients_baker_all" ON ingredients FOR ALL USING (auth.uid() = baker_id);
+
+CREATE INDEX IF NOT EXISTS idx_ingredients_baker ON ingredients(baker_id, category);
+CREATE INDEX IF NOT EXISTS idx_ingredients_low_stock ON ingredients(baker_id, stock_quantity, reorder_point) WHERE stock_quantity <= reorder_point;
+
+DROP TRIGGER IF EXISTS set_updated_at ON ingredients;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON ingredients FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- RECIPES (link products to ingredients)
+CREATE TABLE IF NOT EXISTS recipes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT,
+  instructions TEXT,
+  yield_amount INTEGER DEFAULT 1,
+  yield_unit TEXT DEFAULT 'each',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "recipes_baker_all" ON recipes FOR ALL USING (auth.uid() = baker_id);
+
+DROP TRIGGER IF EXISTS set_updated_at ON recipes;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON recipes FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- RECIPE INGREDIENTS (link recipes to ingredients with quantities)
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  recipe_id UUID NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  ingredient_id UUID NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+  quantity DECIMAL(10,2) NOT NULL,
+  unit TEXT NOT NULL,
+  notes TEXT,
+  sort_order INTEGER DEFAULT 0
+);
+
+ALTER TABLE recipe_ingredients ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "recipe_ingredients_baker_all" ON recipe_ingredients FOR ALL USING (
+  EXISTS (SELECT 1 FROM recipes WHERE id = recipe_id AND baker_id = auth.uid())
+);
+
+-- BUNDLES (material kits for specific products/orders)
+CREATE TABLE IF NOT EXISTS bundles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  description TEXT,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE bundles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "bundles_baker_all" ON bundles FOR ALL USING (auth.uid() = baker_id);
+
+DROP TRIGGER IF EXISTS set_updated_at ON bundles;
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON bundles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- BUNDLE ITEMS (items in a bundle)
+CREATE TABLE IF NOT EXISTS bundle_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  bundle_id UUID NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+  item_name TEXT NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER DEFAULT 0
+);
+
+ALTER TABLE bundle_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "bundle_items_baker_all" ON bundle_items FOR ALL USING (
+  EXISTS (SELECT 1 FROM bundles WHERE id = bundle_id AND baker_id = auth.uid())
+);
+
+-- PRODUCT BUNDLE LINK (assign bundles to products)
+CREATE TABLE IF NOT EXISTS product_bundles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  bundle_id UUID NOT NULL REFERENCES bundles(id) ON DELETE CASCADE,
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE
+);
+
+ALTER TABLE product_bundles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "product_bundles_baker_all" ON product_bundles FOR ALL USING (auth.uid() = baker_id);
+
+-- INVENTORY LOG (track inventory changes)
+CREATE TABLE IF NOT EXISTS inventory_log (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ingredient_id UUID NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  change_amount DECIMAL(10,2) NOT NULL, -- positive for stock in, negative for usage
+  reason TEXT, -- 'order', 'restock', 'adjustment'
+  related_order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE inventory_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "inventory_log_baker_all" ON inventory_log FOR ALL USING (auth.uid() = baker_id);

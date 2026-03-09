@@ -785,6 +785,179 @@ export function DataProvider({ children }) {
     return data
   }, [q, user])
 
+  // ─── Ingredients & Inventory ─────────────────────────────────────────────
+
+  const getIngredients = useCallback(async () => {
+    const { data, error } = await q('ingredients')
+      .select('*')
+      .eq('baker_id', user.id)
+      .order('category', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createIngredient = useCallback(async (ingredientData) => {
+    const { data, error } = await q('ingredients')
+      .insert({ ...ingredientData, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateIngredient = useCallback(async (id, updates) => {
+    const { data, error } = await q('ingredients')
+      .update(updates)
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const adjustInventory = useCallback(async (ingredientId, changeAmount, reason, notes = '', orderId = null) => {
+    const { data: ingredient } = await q('ingredients')
+      .select('stock_quantity')
+      .eq('id', ingredientId)
+      .single()
+    
+    const newQuantity = parseFloat(ingredient.stock_quantity) + parseFloat(changeAmount)
+    
+    await q('ingredients')
+      .update({ stock_quantity: newQuantity })
+      .eq('id', ingredientId)
+      .eq('baker_id', user.id)
+    
+    const { data, error } = await q('inventory_log')
+      .insert({
+        ingredient_id: ingredientId,
+        baker_id: user.id,
+        change_amount: changeAmount,
+        reason,
+        related_order_id: orderId,
+        notes
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  // ─── Bundles ───────────────────────────────────────────────────────────────
+
+  const getBundles = useCallback(async () => {
+    const { data, error } = await q('bundles')
+      .select('*, bundle_items(*)')
+      .eq('baker_id', user.id)
+      .eq('is_active', true)
+      .order('name', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createBundle = useCallback(async (bundleData, items) => {
+    const { data: bundle, error } = await q('bundles')
+      .insert({ name: bundleData.name, description: bundleData.description, baker_id: user.id })
+      .select()
+      .single()
+    if (error) throw error
+
+    if (items?.length > 0) {
+      const bundleItems = items.map((item, i) => ({
+        bundle_id: bundle.id,
+        item_name: item.name,
+        quantity: item.quantity,
+        sort_order: i
+      }))
+      await q('bundle_items').insert(bundleItems)
+    }
+    return bundle
+  }, [q, user])
+
+  const updateBundle = useCallback(async (id, updates, items) => {
+    const { data, error } = await q('bundles')
+      .update(updates)
+      .eq('id', id)
+      .eq('baker_id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+
+    if (items !== undefined) {
+      await q('bundle_items').delete().eq('bundle_id', id)
+      if (items.length > 0) {
+        const bundleItems = items.map((item, i) => ({
+          bundle_id: id,
+          item_name: item.name,
+          quantity: item.quantity,
+          sort_order: i
+        }))
+        await q('bundle_items').insert(bundleItems)
+      }
+    }
+    return data
+  }, [q, user])
+
+  const deleteBundle = useCallback(async (id) => {
+    const { error } = await q('bundles')
+      .delete()
+      .eq('id', id)
+      .eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Generate Shopping List from Orders ────────────────────────────────────
+
+  const generateShoppingList = useCallback(async (orders) => {
+    // Get all recipes for products in orders
+    const productIds = orders.flatMap(o => (o.order_items || []).map(i => i.product_id)).filter(Boolean)
+    
+    if (productIds.length === 0) return []
+
+    const { data: recipes } = await q('recipes')
+      .select('*, recipe_ingredients(*, ingredients(*))')
+      .in('product_id', productIds)
+      .eq('baker_id', user.id)
+
+    // Aggregate ingredient quantities
+    const ingredientMap = new Map()
+    
+    recipes?.forEach(recipe => {
+      const orderItems = orders.flatMap(o => o.order_items || []).filter(i => i.product_id === recipe.product_id)
+      const totalQuantity = orderItems.reduce((sum, i) => sum + (i.quantity || 1), 0)
+      
+      recipe.recipe_ingredients?.forEach(ri => {
+        const needed = (ri.quantity || 0) * totalQuantity
+        const current = ingredientMap.get(ri.ingredient_id) || { ...ri.ingredients, needed: 0 }
+        current.needed += needed
+        ingredientMap.set(ri.ingredient_id, current)
+      })
+    })
+
+    // Check stock levels
+    const shoppingList = []
+    ingredientMap.forEach((ingredient, id) => {
+      const inStock = parseFloat(ingredient.stock_quantity) || 0
+      const needed = ingredient.needed
+      const toBuy = Math.max(0, needed - inStock)
+      
+      if (toBuy > 0) {
+        shoppingList.push({
+          ingredient_id: id,
+          name: ingredient.name,
+          unit: ingredient.unit,
+          needed,
+          in_stock: inStock,
+          to_buy: toBuy,
+          unit_cost: ingredient.unit_cost
+        })
+      }
+    })
+
+    return shoppingList.sort((a, b) => a.name.localeCompare(b.name))
+  }, [q, user])
+
   const value = {
     // Clients
     getClients, createClient, updateClient, deleteClient,
@@ -810,6 +983,12 @@ export function DataProvider({ children }) {
     getPayments, recordPayment, deletePayment,
     // Email
     logEmail, getEmailLog, getEmailTemplates, saveEmailTemplate,
+    // Inventory
+    getIngredients, createIngredient, updateIngredient, adjustInventory,
+    // Bundles
+    getBundles, createBundle, updateBundle, deleteBundle,
+    // Shopping List
+    generateShoppingList,
     // Stats
     getDashboardStats
   }
