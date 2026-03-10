@@ -201,7 +201,7 @@ export default function Bundles() {
                   className="form-input" 
                   value={form.name} 
                   onChange={(e) => setForm({ ...form, name: e.target.value })} 
-                  placeholder="e.g., 6\" Cake Bundle"
+                  placeholder='e.g., 6" Cake Bundle'
                   required
                 />
               </div>

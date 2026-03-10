@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   ArrowLeft, Plus, Trash2, Loader2, Send, CheckCircle,
-  XCircle, FileText, Calendar, Tag, User, ChevronDown, Fee
+  XCircle, FileText, Calendar, Tag, User, ChevronDown, Receipt
 } from 'lucide-react'
 import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
@@ -463,7 +463,7 @@ export default function QuoteBuilder() {
           </div>
 
           <div className="card card-padding builder-section">
-            <div className="builder-section-title"><Fee size={14} /> Additional Fees</div>
+            <div className="builder-section-title"><Receipt size={14} /> Additional Fees</div>
             <div className="fees-list">
               {fees.map((fee, i) => (
                 <div key={i} className="fee-row" style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
