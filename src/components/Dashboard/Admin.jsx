@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { Users, Crown, Shield, DollarSign, TrendingUp, Store, Search, Filter, MoreVertical, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react'
 import { useToast } from '../Shared/Toast'
+import { BarChart2 } from 'lucide-react'
 import './Admin.css'
 
 export default function Admin() {
@@ -196,6 +197,28 @@ export default function Admin() {
             <div className="admin-stat-icon"><Users size={20} /></div>
             <div className="admin-stat-value">{stats.newUsersThisMonth}</div>
             <div className="admin-stat-label">New This Month</div>
+          </div>
+        </div>
+      )}
+
+      {stats?.acquisitionStats && (
+        <div className="admin-section">
+          <h3 className="admin-section-title"><BarChart2 size={18} /> Acquisition Sources</h3>
+          <div className="acquisition-stats">
+            {Object.entries(stats.acquisitionStats)
+              .sort(([,a], [,b]) => b - a)
+              .map(([source, count]) => (
+                <div key={source} className="acquisition-stat">
+                  <div className="acquisition-source">{source}</div>
+                  <div className="acquisition-bar-container">
+                    <div 
+                      className="acquisition-bar" 
+                      style={{ width: `${(count / stats.totalUsers) * 100}%` }}
+                    />
+                  </div>
+                  <div className="acquisition-count">{count}</div>
+                </div>
+              ))}
           </div>
         </div>
       )}

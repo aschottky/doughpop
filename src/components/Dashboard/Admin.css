@@ -332,6 +332,66 @@
   margin-top: 12px;
 }
 
+/* Acquisition Stats */
+.admin-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.admin-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+
+.acquisition-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.acquisition-stat {
+  display: grid;
+  grid-template-columns: 100px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+}
+
+.acquisition-source {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  text-transform: capitalize;
+}
+
+.acquisition-bar-container {
+  height: 8px;
+  background: var(--border-light);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.acquisition-bar {
+  height: 100%;
+  background: var(--honey);
+  border-radius: 100px;
+  transition: width 0.5s ease;
+}
+
+.acquisition-count {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 @media (max-width: 768px) {
   .admin-stats {
     grid-template-columns: repeat(2, 1fr);
@@ -343,6 +403,10 @@
   
   .admin-users-table table {
     min-width: 800px;
+  }
+  
+  .acquisition-stat {
+    grid-template-columns: 80px 1fr 35px;
   }
   
   .user-actions {

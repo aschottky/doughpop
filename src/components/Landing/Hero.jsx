@@ -28,13 +28,18 @@ export default function Hero() {
               See how it works
             </a>
           </div>
+          <div className="hero-trust-badges">
+            <span className="trust-badge">✓ No credit card required</span>
+            <span className="trust-badge">✓ Free forever plan</span>
+            <span className="trust-badge">✓ Cancel anytime</span>
+          </div>
           <div className="hero-social-proof">
             <div className="hero-avatars">
               {['🧁', '🎂', '🥐', '🍰', '🍩'].map((emoji, i) => (
                 <div key={i} className="hero-avatar-circle">{emoji}</div>
               ))}
             </div>
-            <p><strong>500+ home bakers</strong> already using DoughPop</p>
+            <p>Join home bakers who manage <strong>quotes & invoices</strong> in one place</p>
           </div>
         </div>
 

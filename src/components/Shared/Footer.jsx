@@ -31,19 +31,19 @@ export default function Footer() {
             </ul>
           </div>
           <div className="footer-col">
-            <h4>Tools</h4>
+            <h4>Resources</h4>
             <ul>
-              <li><a href="#">Quote Builder</a></li>
-              <li><a href="#">Invoice Generator</a></li>
-              <li><a href="#">Client CRM</a></li>
-              <li><a href="#">Online Store</a></li>
+              <li><Link to="/blog">Blog</Link></li>
+              <li><Link to="/checklist">Free Order Checklist</Link></li>
+              <li><a href="/blog/how-to-invoice-home-bakery">Invoice Template</a></li>
+              <li><a href="/blog/cake-order-form-template">Order Form Template</a></li>
             </ul>
           </div>
           <div className="footer-col">
             <h4>Company</h4>
             <ul>
               <li><a href="#">About</a></li>
-              <li><a href="#">Blog</a></li>
+              <li><Link to="/blog">Blog</Link></li>
               <li><a href="#">Privacy Policy</a></li>
               <li><a href="#">Terms of Service</a></li>
             </ul>

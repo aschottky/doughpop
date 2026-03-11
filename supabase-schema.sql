@@ -23,24 +23,50 @@ CREATE TABLE IF NOT EXISTS profiles (
   subscription_end_date TIMESTAMPTZ,
   stripe_customer_id TEXT,
   stripe_subscription_id TEXT,
+  -- Acquisition / Marketing
+  acquisition_source TEXT DEFAULT 'direct',
+  acquisition_medium TEXT,
+  acquisition_campaign TEXT,
+  landing_page TEXT DEFAULT '/',
+  referral_code TEXT,
+  referred_by UUID REFERENCES profiles(id),
+  admin_notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Auto-create profile on signup
+-- Auto-create profile on signup with acquisition tracking
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, email, full_name)
+  INSERT INTO profiles (
+    id, 
+    email, 
+    full_name,
+    business_name,
+    acquisition_source,
+    acquisition_medium,
+    acquisition_campaign,
+    landing_page,
+    referral_code
+  )
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', '')
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'business_name', ''),
+    COALESCE(NEW.raw_user_meta_data->>'acquisition_source', 'direct'),
+    NEW.raw_user_meta_data->>'acquisition_medium',
+    NEW.raw_user_meta_data->>'acquisition_campaign',
+    COALESCE(NEW.raw_user_meta_data->>'landing_page', '/'),
+    NEW.raw_user_meta_data->>'referral_code'
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created

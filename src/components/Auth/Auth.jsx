@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { captureAttribution, getAttribution, trackEvent, Events } from '../../lib/marketing'
 import {
   Croissant, Mail, Lock, User, Eye, EyeOff,
   ArrowLeft, Loader2, AlertTriangle, CheckCircle, Building2
@@ -68,6 +69,12 @@ function Auth() {
     )
   }
 
+  // Capture attribution on mount
+  useEffect(() => {
+    captureAttribution()
+    trackEvent(Events.SIGNUP_START, { mode })
+  }, [mode])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -80,7 +87,25 @@ function Auth() {
       } else if (mode === 'signup') {
         if (password !== confirmPassword) throw new Error('Passwords do not match')
         if (password.length < 6) throw new Error('Password must be at least 6 characters')
-        await signUp(email, password, { full_name: fullName, business_name: businessName })
+        
+        // Get attribution data to pass with signup
+        const attribution = getAttribution()
+        
+        await signUp(email, password, { 
+          full_name: fullName, 
+          business_name: businessName,
+          acquisition_source: attribution.source || 'direct',
+          acquisition_medium: attribution.medium || null,
+          acquisition_campaign: attribution.campaign || null,
+          referral_code: attribution.referral || null,
+          landing_page: attribution.landing_page || '/'
+        })
+        
+        trackEvent(Events.SIGNUP_COMPLETE, { 
+          source: attribution.source || 'direct',
+          has_referral: !!attribution.referral 
+        })
+        
         setMessage('Check your email to confirm your account!')
         setMode('login')
       } else if (mode === 'forgot') {

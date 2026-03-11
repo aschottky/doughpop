@@ -1017,7 +1017,7 @@ export function DataProvider({ children }) {
 
   const getSystemStats = useCallback(async () => {
     const { data: users, error: usersError } = await q('profiles')
-      .select('subscription_tier, is_admin, created_at')
+      .select('subscription_tier, is_admin, created_at, acquisition_source')
     if (usersError) throw usersError
 
     const { data: stores, error: storesError } = await q('stores')
@@ -1027,6 +1027,13 @@ export function DataProvider({ children }) {
     const { data: invoices, error: invoicesError } = await q('invoices')
       .select('total, status, created_at')
     if (invoicesError) throw invoicesError
+
+    // Calculate acquisition stats
+    const acquisitionStats = users.reduce((acc, u) => {
+      const source = u.acquisition_source || 'direct'
+      acc[source] = (acc[source] || 0) + 1
+      return acc
+    }, {})
 
     return {
       totalUsers: users.length,
@@ -1039,7 +1046,8 @@ export function DataProvider({ children }) {
         const created = new Date(u.created_at)
         const now = new Date()
         return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
-      }).length
+      }).length,
+      acquisitionStats
     }
   }, [q])
 

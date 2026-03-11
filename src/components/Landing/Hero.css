@@ -60,7 +60,26 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
+}
+
+.hero-trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.7);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
 }
 
 .hero-cta-primary {
