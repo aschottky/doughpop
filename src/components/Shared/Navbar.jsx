@@ -29,6 +29,7 @@ export default function Navbar() {
   const navLinks = [
     { label: 'Features', href: '/#features' },
     { label: 'Pricing', href: '/#pricing' },
+    { label: 'Blog', href: '/blog' },
     { label: 'For Bakers', href: '/#how-it-works' },
   ]
 

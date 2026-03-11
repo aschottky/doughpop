@@ -13,6 +13,7 @@ import Testimonials from './components/Landing/Testimonials'
 import CallToAction from './components/Landing/CallToAction'
 import LeadMagnet from './components/Landing/LeadMagnet'
 import Blog from './components/Landing/Blog'
+import BlogPost from './components/Landing/BlogPost'
 import PaidLanding from './components/Landing/PaidLanding'
 
 // Auth
@@ -110,6 +111,7 @@ function AppContent() {
 
         {/* Blog */}
         <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
 
         {/* Paid Landing (for ads) */}
         <Route path="/start" element={<PaidLanding />} />

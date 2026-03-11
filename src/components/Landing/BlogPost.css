@@ -1,0 +1,218 @@
+.blog-post-page {
+  min-height: 100vh;
+  background: var(--cream);
+  padding: 40px 20px;
+}
+
+.blog-container {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.blog-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  text-decoration: none;
+  margin-bottom: 32px;
+  transition: color 0.2s;
+}
+
+.blog-back-link:hover {
+  color: var(--honey);
+}
+
+.blog-post {
+  background: var(--card-background);
+  border-radius: var(--radius-xl);
+  padding: 48px;
+  border: 1px solid var(--border-light);
+}
+
+.blog-post-not-found {
+  text-align: center;
+  padding: 80px 20px;
+}
+
+.blog-post-not-found h1 {
+  font-family: var(--font-display, 'Playfair Display', serif);
+  font-size: 2rem;
+  color: var(--espresso);
+  margin-bottom: 16px;
+}
+
+.blog-post-header {
+  margin-bottom: 40px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.blog-category {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--honey);
+  background: var(--cream);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  margin-bottom: 16px;
+}
+
+.blog-post-title {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  color: var(--espresso);
+  line-height: 1.2;
+  margin: 0 0 20px 0;
+}
+
+.blog-post-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+}
+
+.blog-date,
+.blog-read-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blog-post-content {
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: var(--text-body);
+}
+
+.blog-post-content h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  color: var(--espresso);
+  margin: 40px 0 16px 0;
+}
+
+.blog-post-content h3 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--espresso);
+  margin: 32px 0 12px 0;
+}
+
+.blog-post-content p {
+  margin: 0 0 20px 0;
+}
+
+.blog-post-content ul,
+.blog-post-content ol {
+  margin: 0 0 20px 0;
+  padding-left: 24px;
+}
+
+.blog-post-content li {
+  margin-bottom: 8px;
+}
+
+.blog-post-content blockquote {
+  background: var(--cream);
+  border-left: 4px solid var(--honey);
+  padding: 20px 24px;
+  margin: 24px 0;
+  font-style: italic;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.blog-post-content .cta-box {
+  background: linear-gradient(135deg, var(--espresso) 0%, var(--chocolate) 100%);
+  color: white;
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  margin: 32px 0;
+  text-align: center;
+}
+
+.blog-post-content .cta-box h3 {
+  color: white;
+  margin: 0 0 12px 0;
+  font-size: 1.25rem;
+}
+
+.blog-post-content .cta-box p {
+  opacity: 0.9;
+  margin: 0 0 20px 0;
+  font-size: 0.9375rem;
+}
+
+.blog-post-content .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--honey);
+  color: var(--espresso);
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.blog-post-content .btn:hover {
+  background: var(--honey-dark);
+  transform: translateY(-1px);
+}
+
+.blog-post-footer {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border-light);
+}
+
+.blog-post-cta {
+  background: var(--cream);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  text-align: center;
+}
+
+.blog-post-cta h3 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--espresso);
+  margin: 0 0 12px 0;
+}
+
+.blog-post-cta p {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0 0 20px 0;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .blog-post-page {
+    padding: 20px 16px;
+  }
+
+  .blog-post {
+    padding: 32px 24px;
+  }
+
+  .blog-post-title {
+    font-size: 1.75rem;
+  }
+
+  .blog-post-content {
+    font-size: 1rem;
+  }
+
+  .blog-post-content .cta-box {
+    padding: 24px;
+    margin: 24px -8px;
+    border-radius: var(--radius);
+  }
+}
