@@ -958,6 +958,91 @@ export function DataProvider({ children }) {
     return shoppingList.sort((a, b) => a.name.localeCompare(b.name))
   }, [q, user])
 
+  // ─── Admin Functions ─────────────────────────────────────────────────────
+
+  const getAllUsers = useCallback(async () => {
+    // Only admins can fetch all users
+    const { data, error } = await q('profiles')
+      .select('*, stores(slug, is_published)')
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q])
+
+  const updateUserTier = useCallback(async (userId, tier) => {
+    const { data, error } = await q('profiles')
+      .update({ subscription_tier: tier })
+      .eq('id', userId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q])
+
+  const updateUserAdminStatus = useCallback(async (userId, isAdmin) => {
+    const { data, error } = await q('profiles')
+      .update({ is_admin: isAdmin })
+      .eq('id', userId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q])
+
+  const addAdminNote = useCallback(async (userId, notes) => {
+    const { data, error } = await q('profiles')
+      .update({ admin_notes: notes })
+      .eq('id', userId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [q])
+
+  const processRefund = useCallback(async (paymentId, amount, reason) => {
+    const { data, error } = await supabase
+      .from('refunds')
+      .insert({
+        payment_id: paymentId,
+        baker_id: user.id,
+        amount,
+        reason,
+        processed_by: user.id
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }, [user])
+
+  const getSystemStats = useCallback(async () => {
+    const { data: users, error: usersError } = await q('profiles')
+      .select('subscription_tier, is_admin, created_at')
+    if (usersError) throw usersError
+
+    const { data: stores, error: storesError } = await q('stores')
+      .select('is_published')
+    if (storesError) throw storesError
+
+    const { data: invoices, error: invoicesError } = await q('invoices')
+      .select('total, status, created_at')
+    if (invoicesError) throw invoicesError
+
+    return {
+      totalUsers: users.length,
+      proUsers: users.filter(u => u.subscription_tier === 'pro').length,
+      adminUsers: users.filter(u => u.is_admin).length,
+      publishedStores: stores.filter(s => s.is_published).length,
+      totalRevenue: invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + parseFloat(i.total || 0), 0),
+      pendingInvoices: invoices.filter(i => i.status === 'sent').length,
+      newUsersThisMonth: users.filter(u => {
+        const created = new Date(u.created_at)
+        const now = new Date()
+        return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear()
+      }).length
+    }
+  }, [q])
+
   const value = {
     // Clients
     getClients, createClient, updateClient, deleteClient,
@@ -989,6 +1074,8 @@ export function DataProvider({ children }) {
     getBundles, createBundle, updateBundle, deleteBundle,
     // Shopping List
     generateShoppingList,
+    // Admin
+    getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, processRefund, getSystemStats,
     // Stats
     getDashboardStats
   }

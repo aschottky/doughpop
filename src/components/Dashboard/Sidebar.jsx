@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useSubscription } from '../../context/SubscriptionContext'
 import {
   Croissant, LayoutDashboard, FileText, Receipt,
-  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare, Archive
+  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare, Archive, Shield
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -81,6 +81,16 @@ export default function Sidebar({ isOpen, onClose }) {
               <span>{item.label}</span>
             </Link>
           ))}
+          {profile?.is_admin && (
+            <Link
+              to="/dashboard/admin"
+              className={`sidebar-nav-item ${isActive('/dashboard/admin') ? 'sidebar-nav-item-active' : ''}`}
+              onClick={onClose}
+            >
+              <Shield size={19} />
+              <span>Admin</span>
+            </Link>
+          )}
         </nav>
 
         <div className="sidebar-bottom">

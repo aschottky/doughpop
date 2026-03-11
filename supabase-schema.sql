@@ -831,3 +831,35 @@ ALTER TABLE mileage_logs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "mileage_logs_baker_all" ON mileage_logs FOR ALL USING (auth.uid() = baker_id);
 
 CREATE INDEX IF NOT EXISTS idx_mileage_baker ON mileage_logs(baker_id, trip_date);
+
+
+-- ============================================================================
+-- ADMIN FEATURES: Refunds and User Management
+-- ============================================================================
+
+-- REFUNDS (track refunds issued by admin)
+CREATE TABLE IF NOT EXISTS refunds (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  amount DECIMAL(10,2) NOT NULL,
+  reason TEXT,
+  processed_by UUID NOT NULL REFERENCES profiles(id),
+  stripe_refund_id TEXT,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE refunds ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "refunds_admin_all" ON refunds FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE)
+);
+CREATE POLICY "refunds_baker_view" ON refunds FOR SELECT USING (baker_id = auth.uid());
+
+CREATE INDEX IF NOT EXISTS idx_refunds_payment ON refunds(payment_id);
+CREATE INDEX IF NOT EXISTS idx_refunds_baker ON refunds(baker_id, created_at);
+
+-- Add admin_notes to profiles for internal admin tracking
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
