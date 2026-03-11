@@ -3,12 +3,13 @@ import { useAuth } from '../../context/AuthContext'
 import { useSubscription } from '../../context/SubscriptionContext'
 import {
   Croissant, LayoutDashboard, FileText, Receipt,
-  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare, Archive, Shield
+  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare, Archive, Shield, Ticket
 } from 'lucide-react'
 import './Sidebar.css'
 
 const navItems = [
   { icon: <LayoutDashboard size={19} />, label: 'Overview', path: '/dashboard' },
+  { icon: <Ticket size={19} />, label: 'Order Tickets', path: '/dashboard/tickets' },
   { icon: <Calendar size={19} />, label: 'Calendar', path: '/dashboard/calendar' },
   { icon: <CheckSquare size={19} />, label: 'Tasks', path: '/dashboard/tasks' },
   { icon: <FileText size={19} />, label: 'Quotes', path: '/dashboard/quotes' },
