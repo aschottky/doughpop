@@ -7,12 +7,6 @@ import Modal from '../Shared/Modal'
 import { useToast } from '../Shared/Toast'
 import './ClientList.css'
 
-const DEMO_CLIENTS = [
-  { id: '1', first_name: 'Sarah', last_name: 'Thompson', email: 'sarah@example.com', phone: '(512) 555-0101', city: 'Austin', state: 'TX', total_spent: 1230, order_count: 4, tags: ['wedding', 'vip'], created_at: new Date().toISOString() },
-  { id: '2', first_name: 'Emma', last_name: 'Rodriguez', email: 'emma@example.com', phone: '(312) 555-0183', city: 'Chicago', state: 'IL', total_spent: 680, order_count: 2, tags: ['birthday'], created_at: new Date(Date.now() - 86400000).toISOString() },
-  { id: '3', first_name: 'Tom', last_name: 'Wilson', email: 'tom@example.com', phone: null, city: null, state: null, total_spent: 165, order_count: 1, tags: ['corporate'], created_at: new Date(Date.now() - 172800000).toISOString() },
-]
-
 const EMPTY_CLIENT = { first_name: '', last_name: '', email: '', phone: '', address: '', city: '', state: '', zip: '', notes: '', tags: [] }
 
 export default function ClientList() {
@@ -29,8 +23,8 @@ export default function ClientList() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!configured) { setClients(DEMO_CLIENTS); setLoading(false); return }
-    getClients().then(setClients).catch(() => setClients(DEMO_CLIENTS)).finally(() => setLoading(false))
+    if (!configured) { setClients([]); setLoading(false); return }
+    getClients().then(data => setClients(data || [])).catch(() => setClients([])).finally(() => setLoading(false))
   }, [configured])
 
   const openAddModal = () => { setEditClient(null); setForm(EMPTY_CLIENT); setModalOpen(true) }

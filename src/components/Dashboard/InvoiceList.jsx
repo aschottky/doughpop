@@ -7,12 +7,6 @@ import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
 import './QuoteList.css'
 
-const DEMO_INVOICES = [
-  { id: '1', invoice_number: 'INV-0001', clients: { first_name: 'Emma', last_name: 'Rodriguez' }, title: 'Baby shower dessert table', total: 680, status: 'paid', due_date: '2026-02-15', created_at: new Date().toISOString(), is_archived: false },
-  { id: '2', invoice_number: 'INV-0002', clients: { first_name: 'Tom', last_name: 'Wilson' }, title: 'Corporate cookies', total: 165, status: 'overdue', due_date: '2026-02-01', created_at: new Date(Date.now() - 86400000).toISOString(), is_archived: false },
-  { id: '3', invoice_number: 'INV-0003', clients: { first_name: 'Sarah', last_name: 'Thompson' }, title: 'Wedding cake', total: 545, status: 'sent', due_date: '2026-03-10', created_at: new Date(Date.now() - 172800000).toISOString(), is_archived: false },
-]
-
 export default function InvoiceList() {
   const navigate = useNavigate()
   const { getInvoices, deleteInvoice, archiveInvoice, duplicateInvoice } = useData()
@@ -25,8 +19,8 @@ export default function InvoiceList() {
   const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
-    if (!configured) { setInvoices(DEMO_INVOICES); setLoading(false); return }
-    getInvoices(showArchived).then(setInvoices).catch(() => setInvoices(DEMO_INVOICES)).finally(() => setLoading(false))
+    if (!configured) { setInvoices([]); setLoading(false); return }
+    getInvoices(showArchived).then(data => setInvoices(data || [])).catch(() => setInvoices([])).finally(() => setLoading(false))
   }, [configured, showArchived])
 
   const handleDelete = async (e, id) => {

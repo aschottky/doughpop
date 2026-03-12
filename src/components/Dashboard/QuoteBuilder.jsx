@@ -27,7 +27,7 @@ export default function QuoteBuilder() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getQuote, createQuote, updateQuote, getClients, getProducts, getDiscountPresets } = useData()
+  const { getQuote, createQuote, updateQuote, getClients, createClient, getProducts, getDiscountPresets } = useData()
   const { profile } = useAuth()
   const toast = useToast()
   const configured = isSupabaseConfigured()
@@ -136,10 +136,16 @@ export default function QuoteBuilder() {
         const [clientData, productData, presetData] = await Promise.all([
           getClients(), getProducts(), getDiscountPresets()
         ])
-        setClients(clientData)
-        setProducts(productData)
-        setDiscountPresets(presetData)
-      } catch {}
+        setClients(clientData || [])
+        setProducts(productData || [])
+        setDiscountPresets(presetData || [])
+      } catch (err) {
+        console.error('Failed to load initial data:', err)
+        toast.error('Failed to load clients and products')
+        setClients([])
+        setProducts([])
+        setDiscountPresets([])
+      }
     }
 
     if (isEdit && configured) {

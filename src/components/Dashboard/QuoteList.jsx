@@ -7,13 +7,6 @@ import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
 import './QuoteList.css'
 
-const DEMO_QUOTES = [
-  { id: '1', quote_number: 'Q-0001', clients: { first_name: 'Sarah', last_name: 'Thompson' }, title: 'Wedding cake & cookies', total: 545, status: 'sent', valid_until: '2026-03-20', created_at: new Date().toISOString(), is_archived: false },
-  { id: '2', quote_number: 'Q-0002', clients: { first_name: 'Mike', last_name: 'Jenkins' }, title: 'Birthday party order', total: 220, status: 'accepted', valid_until: '2026-03-15', created_at: new Date(Date.now() - 86400000).toISOString(), is_archived: false },
-  { id: '3', quote_number: 'Q-0003', clients: null, title: 'Custom cake tasting', total: 95, status: 'draft', valid_until: null, created_at: new Date(Date.now() - 172800000).toISOString(), is_archived: false },
-  { id: '4', quote_number: 'Q-0004', clients: { first_name: 'Emma', last_name: 'Clark' }, title: 'Baby shower dessert table', total: 680, status: 'converted', valid_until: '2026-02-28', created_at: new Date(Date.now() - 604800000).toISOString(), is_archived: false },
-]
-
 export default function QuoteList() {
   const navigate = useNavigate()
   const { getQuotes, deleteQuote, archiveQuote, duplicateQuote } = useData()
@@ -31,15 +24,16 @@ export default function QuoteList() {
 
   const loadQuotes = async () => {
     if (!configured) {
-      setQuotes(DEMO_QUOTES)
+      setQuotes([])
       setLoading(false)
       return
     }
     try {
       const data = await getQuotes(showArchived)
-      setQuotes(data)
-    } catch {
-      setQuotes(DEMO_QUOTES)
+      setQuotes(data || [])
+    } catch (err) {
+      console.error('Failed to load quotes:', err)
+      setQuotes([])
     } finally {
       setLoading(false)
     }

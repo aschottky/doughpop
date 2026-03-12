@@ -31,10 +31,10 @@ export default function ProductList() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!configured) { setProducts(DEMO_PRODUCTS); setLoading(false); return }
+    if (!configured) { setProducts([]); setLoading(false); return }
     Promise.all([getProducts(), getCategories()])
-      .then(([p, c]) => { setProducts(p); setCategories(c) })
-      .catch(() => setProducts(DEMO_PRODUCTS))
+      .then(([p, c]) => { setProducts(p || []); setCategories(c || []) })
+      .catch(() => setProducts([]))
       .finally(() => setLoading(false))
   }, [configured])
 
