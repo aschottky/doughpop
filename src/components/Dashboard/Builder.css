@@ -399,6 +399,15 @@
   font-size: 0.75rem;
 }
 
+.item-options-row {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
+}
+.item-option-select {
+  font-size: 0.8rem; padding: 4px 8px; min-width: 100px; flex: 1;
+  border: 1px dashed var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+}
+
 @media (max-width: 900px) {
   .builder-body { grid-template-columns: 1fr; }
   .builder-sidebar { position: static; }

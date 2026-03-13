@@ -907,6 +907,280 @@ export function DataProvider({ children }) {
     if (error) throw error
   }, [q, user])
 
+  // ─── Baker Event Types ───────────────────────────────────────────────────
+
+  const getEventTypes = useCallback(async () => {
+    const { data, error } = await q('baker_event_types')
+      .select('*').eq('baker_id', user.id).order('sort_order', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createEventType = useCallback(async (name, sortOrder = 0) => {
+    const { data, error } = await q('baker_event_types')
+      .insert({ baker_id: user.id, name, sort_order: sortOrder }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateEventType = useCallback(async (id, updates) => {
+    const { data, error } = await q('baker_event_types')
+      .update(updates).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteEventType = useCallback(async (id) => {
+    const { error } = await q('baker_event_types').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Baker Flavors ──────────────────────────────────────────────────────
+
+  const getFlavors = useCallback(async (category) => {
+    let query = q('baker_flavors').select('*').eq('baker_id', user.id)
+    if (category) query = query.eq('category', category)
+    const { data, error } = await query.order('sort_order', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createFlavor = useCallback(async (flavorData) => {
+    const { data, error } = await q('baker_flavors')
+      .insert({ ...flavorData, baker_id: user.id }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateFlavor = useCallback(async (id, updates) => {
+    const { data, error } = await q('baker_flavors')
+      .update(updates).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteFlavor = useCallback(async (id) => {
+    const { error } = await q('baker_flavors').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Baker Sizes ────────────────────────────────────────────────────────
+
+  const getSizes = useCallback(async (productType) => {
+    let query = q('baker_sizes').select('*').eq('baker_id', user.id)
+    if (productType) query = query.eq('product_type', productType)
+    const { data, error } = await query.order('sort_order', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createSize = useCallback(async (sizeData) => {
+    const { data, error } = await q('baker_sizes')
+      .insert({ ...sizeData, baker_id: user.id }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateSize = useCallback(async (id, updates) => {
+    const { data, error } = await q('baker_sizes')
+      .update(updates).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteSize = useCallback(async (id) => {
+    const { error } = await q('baker_sizes').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Baker Contracts ────────────────────────────────────────────────────
+
+  const getContracts = useCallback(async () => {
+    const { data, error } = await q('baker_contracts')
+      .select('*').eq('baker_id', user.id).eq('is_active', true).order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createContract = useCallback(async (contractData) => {
+    const { data, error } = await q('baker_contracts')
+      .insert({ ...contractData, baker_id: user.id }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateContract = useCallback(async (id, updates) => {
+    const { data, error } = await q('baker_contracts')
+      .update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteContract = useCallback(async (id) => {
+    const { error } = await q('baker_contracts').update({ is_active: false }).eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Baker Pricing Rules ────────────────────────────────────────────────
+
+  const getPricingRules = useCallback(async () => {
+    const { data, error } = await q('baker_pricing_rules')
+      .select('*').eq('baker_id', user.id).order('created_at', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createPricingRule = useCallback(async (ruleData) => {
+    const { data, error } = await q('baker_pricing_rules')
+      .insert({ ...ruleData, baker_id: user.id }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updatePricingRule = useCallback(async (id, updates) => {
+    const { data, error } = await q('baker_pricing_rules')
+      .update(updates).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deletePricingRule = useCallback(async (id) => {
+    const { error } = await q('baker_pricing_rules').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Recipes ────────────────────────────────────────────────────────────
+
+  const getRecipes = useCallback(async () => {
+    const { data, error } = await q('recipes')
+      .select('*, recipe_ingredients(*, ingredients(*)), products(name)')
+      .eq('baker_id', user.id)
+      .order('name', { ascending: true })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const getRecipe = useCallback(async (id) => {
+    const { data, error } = await q('recipes')
+      .select('*, recipe_ingredients(*, ingredients(*)), products(name)')
+      .eq('id', id).eq('baker_id', user.id).single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const createRecipe = useCallback(async (recipeData, ingredients = []) => {
+    const { data: recipe, error } = await q('recipes')
+      .insert({ ...recipeData, baker_id: user.id }).select().single()
+    if (error) throw error
+    if (ingredients.length > 0) {
+      const rows = ingredients.map((ing, i) => ({ ...ing, recipe_id: recipe.id, sort_order: i }))
+      await q('recipe_ingredients').insert(rows)
+    }
+    return recipe
+  }, [q, user])
+
+  const updateRecipe = useCallback(async (id, recipeData, ingredients) => {
+    const { data, error } = await q('recipes')
+      .update(recipeData).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    if (ingredients !== undefined) {
+      await q('recipe_ingredients').delete().eq('recipe_id', id)
+      if (ingredients.length > 0) {
+        const rows = ingredients.map((ing, i) => ({ ...ing, recipe_id: id, sort_order: i }))
+        await q('recipe_ingredients').insert(rows)
+      }
+    }
+    return data
+  }, [q, user])
+
+  const deleteRecipe = useCallback(async (id) => {
+    await q('recipe_ingredients').delete().eq('recipe_id', id)
+    const { error } = await q('recipes').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Expenses ───────────────────────────────────────────────────────────
+
+  const getExpenses = useCallback(async (startDate, endDate) => {
+    let query = q('expenses').select('*').eq('baker_id', user.id)
+    if (startDate) query = query.gte('date', startDate)
+    if (endDate) query = query.lte('date', endDate)
+    const { data, error } = await query.order('date', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createExpense = useCallback(async (expenseData) => {
+    const { data, error } = await q('expenses')
+      .insert({ ...expenseData, baker_id: user.id }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateExpense = useCallback(async (id, updates) => {
+    const { data, error } = await q('expenses')
+      .update(updates).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteExpense = useCallback(async (id) => {
+    const { error } = await q('expenses').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Mileage ────────────────────────────────────────────────────────────
+
+  const getMileageLogs = useCallback(async (startDate, endDate) => {
+    let query = q('mileage_logs').select('*, orders(order_number)').eq('baker_id', user.id)
+    if (startDate) query = query.gte('trip_date', startDate)
+    if (endDate) query = query.lte('trip_date', endDate)
+    const { data, error } = await query.order('trip_date', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createMileageLog = useCallback(async (logData) => {
+    const amount = (parseFloat(logData.miles) || 0) * (parseFloat(logData.rate) || 0.67)
+    const { data, error } = await q('mileage_logs')
+      .insert({ ...logData, baker_id: user.id, amount: amount.toFixed(2) }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteMileageLog = useCallback(async (id) => {
+    const { error } = await q('mileage_logs').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
+  // ─── Care / Guide Templates ──────────────────────────────────────────────
+
+  const getCareTemplates = useCallback(async () => {
+    const { data, error } = await q('templates')
+      .select('*').eq('baker_id', user.id).order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q, user])
+
+  const createCareTemplate = useCallback(async (templateData) => {
+    const { data, error } = await q('templates')
+      .insert({ ...templateData, baker_id: user.id }).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const updateCareTemplate = useCallback(async (id, updates) => {
+    const { data, error } = await q('templates')
+      .update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).eq('baker_id', user.id).select().single()
+    if (error) throw error
+    return data
+  }, [q, user])
+
+  const deleteCareTemplate = useCallback(async (id) => {
+    const { error } = await q('templates').delete().eq('id', id).eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
   // ─── Generate Shopping List from Orders ────────────────────────────────────
 
   const generateShoppingList = useCallback(async (orders) => {
@@ -1082,6 +1356,22 @@ export function DataProvider({ children }) {
     getBundles, createBundle, updateBundle, deleteBundle,
     // Shopping List
     generateShoppingList,
+    // Baker Options (dropdowns)
+    getEventTypes, createEventType, updateEventType, deleteEventType,
+    getFlavors, createFlavor, updateFlavor, deleteFlavor,
+    getSizes, createSize, updateSize, deleteSize,
+    // Contracts
+    getContracts, createContract, updateContract, deleteContract,
+    // Pricing Rules
+    getPricingRules, createPricingRule, updatePricingRule, deletePricingRule,
+    // Recipes
+    getRecipes, getRecipe, createRecipe, updateRecipe, deleteRecipe,
+    // Care Templates
+    getCareTemplates, createCareTemplate, updateCareTemplate, deleteCareTemplate,
+    // Expenses
+    getExpenses, createExpense, updateExpense, deleteExpense,
+    // Mileage
+    getMileageLogs, createMileageLog, deleteMileageLog,
     // Admin
     getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, processRefund, getSystemStats,
     // Stats

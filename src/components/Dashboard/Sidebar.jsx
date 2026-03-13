@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext'
 import { useSubscription } from '../../context/SubscriptionContext'
 import {
   Croissant, LayoutDashboard, FileText, Receipt,
-  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar, CheckSquare, Archive, Shield, Ticket
+  Users, Package, ShoppingBag, Settings, Zap, X, LogOut, Store, Calendar,
+  CheckSquare, Archive, Shield, Ticket, Sliders, Beaker, BarChart3, List, ScrollText, BookOpen
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -17,6 +18,12 @@ const navItems = [
   { icon: <Users size={19} />, label: 'Clients', path: '/dashboard/clients' },
   { icon: <Package size={19} />, label: 'Products', path: '/dashboard/products' },
   { icon: <Archive size={19} />, label: 'Bundles', path: '/dashboard/bundles' },
+  { icon: <Beaker size={19} />, label: 'Ingredients', path: '/dashboard/ingredients' },
+  { icon: <List size={19} />, label: 'Lists', path: '/dashboard/lists' },
+  { icon: <BarChart3 size={19} />, label: 'Reports', path: '/dashboard/reports' },
+  { icon: <ScrollText size={19} />, label: 'Contracts', path: '/dashboard/contracts' },
+  { icon: <BookOpen size={19} />, label: 'Care Guides', path: '/dashboard/care-guides' },
+  { icon: <Sliders size={19} />, label: 'Baker Options', path: '/dashboard/baker-options' },
   { icon: <Store size={19} />, label: 'My Store', path: '/dashboard/store' },
 ]
 

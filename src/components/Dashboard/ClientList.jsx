@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
-import { Plus, Search, Mail, Phone, Trash2, Edit2, Loader2, X } from 'lucide-react'
+import { Plus, Search, Mail, Phone, Trash2, Edit2, Loader2, X, Upload } from 'lucide-react'
 import Modal from '../Shared/Modal'
 import { useToast } from '../Shared/Toast'
 import './ClientList.css'
@@ -21,6 +21,88 @@ export default function ClientList() {
   const [editClient, setEditClient] = useState(null)
   const [form, setForm] = useState(EMPTY_CLIENT)
   const [saving, setSaving] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [csvData, setCsvData] = useState(null)
+  const [csvHeaders, setCsvHeaders] = useState([])
+  const [csvMapping, setCsvMapping] = useState({})
+  const [importing, setImporting] = useState(false)
+
+  const CLIENT_FIELDS = [
+    { key: 'first_name', label: 'First Name' },
+    { key: 'last_name', label: 'Last Name' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone' },
+    { key: 'address', label: 'Address' },
+    { key: 'city', label: 'City' },
+    { key: 'state', label: 'State' },
+    { key: 'zip', label: 'Zip' },
+    { key: 'notes', label: 'Notes' },
+  ]
+
+  const handleCSVFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target.result
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+      if (lines.length < 2) { toast.error('CSV must have at least a header row and one data row'); return }
+      const headers = lines[0].split(',').map(h => h.replace(/^"/, '').replace(/"$/, '').trim())
+      const rows = lines.slice(1).map(line => {
+        const vals = line.match(/(".*?"|[^",]+)/g) || []
+        return vals.map(v => v.replace(/^"/, '').replace(/"$/, '').trim())
+      })
+      setCsvHeaders(headers)
+      setCsvData(rows)
+      const autoMap = {}
+      headers.forEach((h, i) => {
+        const hl = h.toLowerCase().replace(/[^a-z]/g, '')
+        if (hl.includes('first') || hl === 'firstname') autoMap['first_name'] = i
+        else if (hl.includes('last') || hl === 'lastname') autoMap['last_name'] = i
+        else if (hl.includes('email') || hl.includes('mail')) autoMap['email'] = i
+        else if (hl.includes('phone') || hl.includes('tel') || hl.includes('mobile')) autoMap['phone'] = i
+        else if (hl.includes('address') || hl.includes('street')) autoMap['address'] = i
+        else if (hl.includes('city')) autoMap['city'] = i
+        else if (hl.includes('state') || hl.includes('province')) autoMap['state'] = i
+        else if (hl.includes('zip') || hl.includes('postal')) autoMap['zip'] = i
+        else if (hl.includes('note')) autoMap['notes'] = i
+      })
+      setCsvMapping(autoMap)
+    }
+    reader.readAsText(file)
+  }
+
+  const handleImport = async () => {
+    if (!csvData?.length) return
+    setImporting(true)
+    let imported = 0
+    try {
+      for (const row of csvData) {
+        const clientData = {}
+        CLIENT_FIELDS.forEach(f => {
+          const colIdx = csvMapping[f.key]
+          if (colIdx !== undefined && colIdx !== '' && row[colIdx]) {
+            clientData[f.key] = row[colIdx]
+          }
+        })
+        if (!clientData.first_name) continue
+        try {
+          const newClient = await createClient(clientData)
+          setClients(prev => [newClient, ...prev])
+          imported++
+        } catch {}
+      }
+      toast.success(`Imported ${imported} client${imported !== 1 ? 's' : ''}`)
+      setShowImport(false)
+      setCsvData(null)
+      setCsvHeaders([])
+      setCsvMapping({})
+    } catch (err) {
+      toast.error(err.message || 'Import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   useEffect(() => {
     if (!configured) { setClients([]); setLoading(false); return }
@@ -85,10 +167,70 @@ export default function ClientList() {
           <h1>Clients</h1>
           <p>Manage your client relationships</p>
         </div>
-        <button className="btn btn-primary" onClick={openAddModal}>
-          <Plus size={17} /> Add Client
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
+            <Upload size={17} /> Import CSV
+          </button>
+          <button className="btn btn-primary" onClick={openAddModal}>
+            <Plus size={17} /> Add Client
+          </button>
+        </div>
       </div>
+
+      {showImport && (
+        <div className="card card-padding" style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem' }}>Import Clients from CSV</h3>
+            <button className="btn btn-ghost btn-xs" onClick={() => { setShowImport(false); setCsvData(null) }}><X size={16} /></button>
+          </div>
+
+          {!csvData ? (
+            <div>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Upload a CSV file from Google Contacts, iPhone, or any spreadsheet. The first row should be headers.
+              </p>
+              <input type="file" accept=".csv" onChange={handleCSVFile} style={{ fontSize: '0.875rem' }} />
+            </div>
+          ) : (
+            <div>
+              <p style={{ fontSize: '0.875rem', marginBottom: '12px' }}><strong>{csvData.length}</strong> rows found. Map your CSV columns:</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px', marginBottom: '16px' }}>
+                {CLIENT_FIELDS.map(f => (
+                  <div key={f.key} className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.75rem' }}>{f.label}</label>
+                    <select className="form-select" style={{ fontSize: '0.8rem' }}
+                      value={csvMapping[f.key] ?? ''}
+                      onChange={e => setCsvMapping(prev => ({ ...prev, [f.key]: e.target.value === '' ? undefined : parseInt(e.target.value) }))}
+                    >
+                      <option value="">— skip —</option>
+                      {csvHeaders.map((h, i) => <option key={i} value={i}>{h}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                Preview (first 3 rows):
+              </p>
+              <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
+                <table className="lists-table" style={{ fontSize: '0.8rem' }}>
+                  <thead><tr>{CLIENT_FIELDS.filter(f => csvMapping[f.key] !== undefined).map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
+                  <tbody>
+                    {csvData.slice(0, 3).map((row, ri) => (
+                      <tr key={ri}>{CLIENT_FIELDS.filter(f => csvMapping[f.key] !== undefined).map(f => <td key={f.key}>{row[csvMapping[f.key]] || '—'}</td>)}</tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => { setCsvData(null); setCsvHeaders([]); setCsvMapping({}) }}>Back</button>
+                <button className="btn btn-primary" onClick={handleImport} disabled={importing || !csvMapping.first_name}>
+                  {importing ? <><Loader2 size={15} className="spinner" /> Importing...</> : <><Upload size={15} /> Import {csvData.length} Contacts</>}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="data-table">
         <div className="data-table-header">

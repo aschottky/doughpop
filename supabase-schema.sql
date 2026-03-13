@@ -895,3 +895,135 @@ CREATE INDEX IF NOT EXISTS idx_refunds_baker ON refunds(baker_id, created_at);
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS admin_notes TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+
+-- Add default tax / pricing config to profiles
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS default_tax_rate DECIMAL(5,2) DEFAULT 0;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tax_name TEXT DEFAULT '';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tax_apply_all BOOLEAN DEFAULT FALSE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS default_pricing_method TEXT DEFAULT 'set_price';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS default_margin_percent DECIMAL(5,2) DEFAULT 30;
+
+
+-- ============================================================================
+-- CONFIGURABLE DROPDOWNS: Event Types, Flavors, Sizes
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS baker_event_types (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE baker_event_types ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "baker_event_types_owner" ON baker_event_types FOR ALL USING (auth.uid() = baker_id);
+CREATE INDEX IF NOT EXISTS idx_event_types_baker ON baker_event_types(baker_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS baker_flavors (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('batter', 'filling', 'frosting')),
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE baker_flavors ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "baker_flavors_owner" ON baker_flavors FOR ALL USING (auth.uid() = baker_id);
+CREATE INDEX IF NOT EXISTS idx_flavors_baker ON baker_flavors(baker_id, category, sort_order);
+
+CREATE TABLE IF NOT EXISTS baker_sizes (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  product_type TEXT DEFAULT 'cake',
+  servings INTEGER DEFAULT 0,
+  batter_weight_grams INTEGER DEFAULT 0,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE baker_sizes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "baker_sizes_owner" ON baker_sizes FOR ALL USING (auth.uid() = baker_id);
+CREATE INDEX IF NOT EXISTS idx_sizes_baker ON baker_sizes(baker_id, product_type, sort_order);
+
+-- Seed function for default event types
+CREATE OR REPLACE FUNCTION seed_default_baker_options(baker UUID)
+RETURNS VOID AS $$
+BEGIN
+  INSERT INTO baker_event_types (baker_id, name, sort_order, is_default) VALUES
+    (baker, 'Birthday', 0, true), (baker, 'Baby Shower', 1, true),
+    (baker, 'Gender Reveal', 2, true), (baker, 'Wedding', 3, true),
+    (baker, 'Anniversary', 4, true), (baker, 'Graduation', 5, true),
+    (baker, 'Retirement', 6, true), (baker, 'Bridal', 7, true),
+    (baker, 'Corporate', 8, true), (baker, 'Holiday', 9, true)
+  ON CONFLICT DO NOTHING;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Add dropdown foreign keys to quote_items and order_items
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS event_type_id UUID REFERENCES baker_event_types(id) ON DELETE SET NULL;
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS flavor_id UUID REFERENCES baker_flavors(id) ON DELETE SET NULL;
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS filling_id UUID REFERENCES baker_flavors(id) ON DELETE SET NULL;
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS frosting_id UUID REFERENCES baker_flavors(id) ON DELETE SET NULL;
+ALTER TABLE quote_items ADD COLUMN IF NOT EXISTS size_id UUID REFERENCES baker_sizes(id) ON DELETE SET NULL;
+
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS event_type_id UUID REFERENCES baker_event_types(id) ON DELETE SET NULL;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS flavor_id UUID REFERENCES baker_flavors(id) ON DELETE SET NULL;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS filling_id UUID REFERENCES baker_flavors(id) ON DELETE SET NULL;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS frosting_id UUID REFERENCES baker_flavors(id) ON DELETE SET NULL;
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS size_id UUID REFERENCES baker_sizes(id) ON DELETE SET NULL;
+
+-- Add event_type_id to quotes (for quote-level event type)
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS event_type_id UUID REFERENCES baker_event_types(id) ON DELETE SET NULL;
+
+
+-- ============================================================================
+-- ENHANCED INGREDIENTS: Multi-store pricing + material types
+-- ============================================================================
+
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS ingredient_type TEXT DEFAULT 'ingredient' CHECK (ingredient_type IN ('ingredient', 'packaging', 'decorating', 'labeling'));
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS avg_price_walmart DECIMAL(10,2);
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS avg_price_costco DECIMAL(10,2);
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS avg_price_sams DECIMAL(10,2);
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS package_size DECIMAL(10,2);
+ALTER TABLE ingredients ADD COLUMN IF NOT EXISTS package_unit TEXT;
+
+
+-- ============================================================================
+-- PRICING RULES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS baker_pricing_rules (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  method TEXT NOT NULL CHECK (method IN ('set_price', 'per_serving', 'cost_plus_margin', 'calculated_cost')),
+  margin_percent DECIMAL(5,2) DEFAULT 0,
+  hourly_rate DECIMAL(8,2) DEFAULT 0,
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE baker_pricing_rules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "baker_pricing_rules_owner" ON baker_pricing_rules FOR ALL USING (auth.uid() = baker_id);
+
+
+-- ============================================================================
+-- CONTRACTS / TERMS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS baker_contracts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  content_html TEXT DEFAULT '',
+  is_default BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE baker_contracts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "baker_contracts_owner" ON baker_contracts FOR ALL USING (auth.uid() = baker_id);
+
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS contract_id UUID REFERENCES baker_contracts(id) ON DELETE SET NULL;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+ALTER TABLE quotes ADD COLUMN IF NOT EXISTS terms_accepted_ip TEXT;

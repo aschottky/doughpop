@@ -1,0 +1,89 @@
+.lists-page { display: flex; flex-direction: column; gap: 20px; }
+
+.lists-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-light); overflow-x: auto; }
+
+.lists-filters {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.lists-date-range {
+  display: flex; gap: 8px; align-items: center; font-size: 0.8125rem; color: var(--text-muted);
+}
+.lists-date-range .form-input { width: auto; }
+
+.lists-content { overflow: hidden; }
+.lists-table-wrap { overflow-x: auto; }
+
+.lists-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.lists-table th {
+  text-align: left; padding: 10px 12px; font-size: 0.75rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+  border-bottom: 2px solid var(--border-light); white-space: nowrap;
+}
+.lists-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); }
+.lists-table tbody tr:hover { background: var(--surface-hover); }
+.lists-bold { font-weight: 600; }
+.lists-empty { text-align: center; padding: 24px; color: var(--text-muted); }
+.lists-empty-block { text-align: center; padding: 48px; color: var(--text-muted); }
+.lists-checked { opacity: 0.5; text-decoration: line-through; }
+
+.lists-status {
+  display: inline-block; padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: 0.75rem; font-weight: 600; text-transform: capitalize;
+}
+.lists-status-draft { background: var(--surface-hover); color: var(--text-muted); }
+.lists-status-sent { background: #dbeafe; color: #1d4ed8; }
+.lists-status-pending { background: #fef3c7; color: #92400e; }
+.lists-status-confirmed { background: #d1fae5; color: #065f46; }
+.lists-status-in_progress { background: #dbeafe; color: #1d4ed8; }
+.lists-status-ready { background: #d1fae5; color: #065f46; }
+.lists-status-delivered { background: var(--success-bg); color: var(--success); }
+.lists-status-accepted { background: var(--success-bg); color: var(--success); }
+.lists-status-declined { background: var(--error-bg); color: var(--error); }
+.lists-status-cancelled { background: var(--error-bg); color: var(--error); }
+
+.lists-order-tag {
+  display: inline-block; padding: 2px 6px; background: var(--surface-hover);
+  border-radius: var(--radius-sm); font-size: 0.75rem; margin: 2px 4px 2px 0;
+}
+
+/* Baking by Type */
+.baking-by-type { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.baking-type-card {
+  border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 16px;
+}
+.baking-type-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.baking-type-header h3 { margin: 0; font-size: 1rem; flex: 1; }
+.baking-type-qty {
+  background: var(--honey-light, #fef3c7); color: var(--honey-dark, #92400e);
+  padding: 4px 12px; border-radius: var(--radius-full); font-size: 0.8125rem; font-weight: 600;
+}
+.baking-type-orders { display: flex; flex-direction: column; gap: 4px; }
+.baking-type-order {
+  display: flex; gap: 12px; align-items: center; padding: 6px 10px;
+  background: var(--surface-hover); border-radius: var(--radius-sm); font-size: 0.8125rem;
+}
+.baking-type-order-num { font-weight: 600; min-width: 70px; }
+.baking-type-note { color: var(--text-muted); font-style: italic; flex: 1; }
+.baking-type-date { color: var(--text-muted); font-size: 0.75rem; }
+
+/* To-Do */
+.lists-todo { display: flex; flex-direction: column; gap: 2px; padding: 8px 16px; }
+.lists-todo-item {
+  display: flex; align-items: flex-start; gap: 12px; padding: 10px 8px;
+  border-bottom: 1px solid var(--border-light);
+}
+.lists-todo-done { opacity: 0.5; }
+.lists-todo-done .lists-todo-desc { text-decoration: line-through; }
+.lists-todo-info { display: flex; flex-direction: column; }
+.lists-todo-desc { font-size: 0.9rem; }
+.lists-todo-meta { font-size: 0.75rem; color: var(--text-muted); text-transform: capitalize; }
+
+@media print {
+  .page-header, .lists-tabs, .lists-filters, .sidebar, .dashboard-topbar { display: none !important; }
+  .lists-content { box-shadow: none; border: none; }
+}
+
+@media (max-width: 768px) {
+  .lists-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .lists-date-range { flex-wrap: wrap; }
+}

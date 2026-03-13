@@ -77,8 +77,33 @@ export async function createCheckoutSession(req, res) {
   const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '')
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+  const siteUrl = process.env.SITE_URL || 'https://doughpop.app'
 
   if (!supabaseUrl || !supabaseServiceKey) { sendError('Server configuration error', 500); return }
+
+  // ── Create Stripe Customer Portal Session ──────────────────────────────────
+  if (body.action === 'portal') {
+    if (!stripeSecretKey) { sendError('Stripe not configured', 500); return }
+    try {
+      const { userId } = await verifyJWT(req, body, supabaseUrl)
+      const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+      const { data: profile } = await supabase.from('profiles').select('stripe_customer_id, email').eq('id', userId).maybeSingle()
+      if (!profile?.stripe_customer_id) {
+        sendError('No active subscription found. Please subscribe first.', 400); return
+      }
+
+      const stripe = new Stripe(stripeSecretKey)
+      const session = await stripe.billingPortal.sessions.create({
+        customer: profile.stripe_customer_id,
+        return_url: `${siteUrl}/dashboard/settings`,
+      })
+
+      setCors(res); res.status(200).json({ url: session.url }); return
+    } catch (err) {
+      sendError(err?.message || 'Failed to create portal session', err?.status || 500); return
+    }
+  }
 
   // ── Verify completed checkout session ──────────────────────────────────────
   if (body.action === 'verify') {

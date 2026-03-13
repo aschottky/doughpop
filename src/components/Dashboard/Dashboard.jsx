@@ -19,6 +19,12 @@ import TaskList from './TaskList'
 import Bundles from './Bundles'
 import Admin from './Admin'
 import OrderTickets from './OrderTickets'
+import BakerOptions from './BakerOptions'
+import IngredientList from './IngredientList'
+import Reports from './Reports'
+import Lists from './Lists'
+import ContractEditor from './ContractEditor'
+import CareGuides from './CareGuides'
 import './Dashboard.css'
 
 export default function Dashboard() {
@@ -62,6 +68,12 @@ export default function Dashboard() {
                 <Route path="tasks" element={<TaskList />} />
                 <Route path="bundles" element={<Bundles />} />
                 <Route path="tickets" element={<OrderTickets />} />
+                <Route path="baker-options" element={<BakerOptions />} />
+                <Route path="ingredients" element={<IngredientList />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="lists" element={<Lists />} />
+                <Route path="contracts" element={<ContractEditor />} />
+                <Route path="care-guides" element={<CareGuides />} />
                 <Route path="admin" element={<Admin />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

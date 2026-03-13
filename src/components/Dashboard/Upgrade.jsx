@@ -5,7 +5,7 @@ import { useSubscription } from '../../context/SubscriptionContext'
 import { getStripe } from '../../lib/stripe'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { supabase } from '../../lib/supabase'
-import { Check, Zap, Loader2, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Check, Zap, Loader2, AlertTriangle, CheckCircle, ExternalLink, Settings } from 'lucide-react'
 import { TIER_INFO } from '../../context/SubscriptionContext'
 import './Upgrade.css'
 
@@ -83,6 +83,29 @@ export default function Upgrade() {
     }
   }
 
+  const handleManageSubscription = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!checkoutUrl || !token) throw new Error('Checkout not configured. Add VITE_CHECKOUT_API_URL to .env')
+
+      const res = await fetch(checkoutUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ action: 'portal' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      if (data.url) window.location.href = data.url
+    } catch (err) {
+      setError(err.message || 'Failed to open billing portal')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (verifying) return (
     <div className="upgrade-loading"><div className="loading-spinner" /><p>Verifying your subscription…</p></div>
   )
@@ -113,9 +136,21 @@ export default function Upgrade() {
       {isPro ? (
         <div className="upgrade-already-pro">
           <CheckCircle size={48} style={{ color: 'var(--sage)', margin: '0 auto 16px' }} />
-          <h2>You're already on Pro! 🎉</h2>
+          <h2>You're on Pro! 🎉</h2>
           <p>You have full access to all DoughPop Pro features.</p>
-          <Link to="/dashboard" className="btn btn-primary">Back to Dashboard</Link>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link to="/dashboard" className="btn btn-primary">Back to Dashboard</Link>
+            <button
+              className="btn btn-secondary"
+              onClick={handleManageSubscription}
+              disabled={loading}
+            >
+              {loading ? <><Loader2 size={18} className="spinner" /></> : <><Settings size={18} /> Manage Subscription</>}
+            </button>
+          </div>
+          <p className="upgrade-guarantee" style={{ marginTop: '16px' }}>
+            Manage billing, payment methods, or cancel anytime
+          </p>
         </div>
       ) : (
         <div className="upgrade-card">

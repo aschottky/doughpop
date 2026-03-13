@@ -1,0 +1,74 @@
+.reports-page { display: flex; flex-direction: column; gap: 20px; }
+
+.reports-summary-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;
+}
+.rpt-card {
+  background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+  padding: 20px; display: flex; flex-direction: column; gap: 4px;
+}
+.rpt-card-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.rpt-card-value { font-size: 1.5rem; font-weight: 700; font-family: var(--font-display); }
+.rpt-card-revenue .rpt-card-value { color: var(--sage, #2d6a4f); }
+.rpt-card-expenses .rpt-card-value { color: var(--error, #dc2626); }
+.rpt-card-mileage .rpt-card-value { color: var(--honey, #c8913a); }
+.rpt-card-profit .rpt-card-value { color: var(--sage, #2d6a4f); }
+.rpt-card-loss .rpt-card-value { color: var(--error, #dc2626); }
+
+.reports-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-light); overflow-x: auto; }
+.reports-filters { display: flex; gap: 12px; align-items: center; }
+
+.reports-content { overflow: hidden; }
+.rpt-section { padding: 20px; }
+.rpt-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.rpt-section-header h3 { margin: 0; font-size: 1rem; color: var(--chocolate); }
+
+.rpt-positive { color: var(--sage, #2d6a4f); font-weight: 600; }
+.rpt-negative { color: var(--error); font-weight: 600; }
+.rpt-notes { font-size: 0.8rem; color: var(--text-muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Bar charts */
+.rpt-bar-chart, .rpt-expense-cats { display: flex; flex-direction: column; gap: 8px; }
+.rpt-bar-row { display: flex; align-items: center; gap: 12px; }
+.rpt-bar-label { width: 120px; font-size: 0.8125rem; font-weight: 500; flex-shrink: 0; text-align: right; }
+.rpt-bar-track {
+  flex: 1; height: 24px; background: var(--surface-hover); border-radius: var(--radius-sm); overflow: hidden;
+}
+.rpt-bar-fill {
+  height: 100%; background: linear-gradient(90deg, var(--honey) 0%, var(--honey-dark, #a67c2e) 100%);
+  border-radius: var(--radius-sm); transition: width 0.3s ease;
+}
+.rpt-bar-fill-expense {
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+}
+.rpt-bar-value { width: 70px; font-size: 0.8125rem; font-weight: 600; }
+
+/* Monthly chart */
+.rpt-monthly-chart {
+  display: flex; gap: 8px; align-items: flex-end; justify-content: space-between;
+  padding: 16px 0; min-height: 200px;
+}
+.rpt-month-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+.rpt-month-bars { display: flex; gap: 3px; align-items: flex-end; }
+.rpt-month-bar { width: 16px; border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.3s ease; }
+.rpt-month-bar-rev { background: var(--sage, #2d6a4f); }
+.rpt-month-bar-exp { background: var(--error, #dc2626); opacity: 0.6; }
+.rpt-month-label { font-size: 0.7rem; color: var(--text-muted); }
+.rpt-month-val { font-size: 0.65rem; color: var(--text-muted); white-space: nowrap; }
+
+.rpt-chart-legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 0.8rem; color: var(--text-muted); }
+.rpt-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; }
+.rpt-legend-rev { background: var(--sage, #2d6a4f); }
+.rpt-legend-exp { background: var(--error, #dc2626); opacity: 0.6; }
+
+@media print {
+  .page-header, .reports-tabs, .reports-filters, .sidebar, .dashboard-topbar { display: none !important; }
+  .reports-content { box-shadow: none; border: none; }
+}
+
+@media (max-width: 768px) {
+  .reports-summary-cards { grid-template-columns: repeat(2, 1fr); }
+  .reports-tabs { overflow-x: auto; flex-wrap: nowrap; }
+  .rpt-bar-label { width: 80px; font-size: 0.75rem; }
+  .rpt-monthly-chart { overflow-x: auto; }
+}

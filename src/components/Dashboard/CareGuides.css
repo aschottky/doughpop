@@ -1,0 +1,9 @@
+.care-guides-page { display: flex; flex-direction: column; gap: 20px; }
+.care-list { display: flex; flex-direction: column; gap: 12px; }
+.care-card { transition: box-shadow 0.15s; }
+.care-card:hover { box-shadow: var(--shadow-md); }
+
+@media (max-width: 768px) {
+  .care-guides-page .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .care-guides-page .page-header > div:last-child { flex-wrap: wrap; }
+}

@@ -11,7 +11,7 @@ import StatusBadge from '../Shared/StatusBadge'
 import { useToast } from '../Shared/Toast'
 import './Builder.css'
 
-const EMPTY_ITEM = { description: '', quantity: 1, unit_price: 0, subtotal: 0, notes: '' }
+const EMPTY_ITEM = { description: '', quantity: 1, unit_price: 0, subtotal: 0, notes: '', flavor_id: '', filling_id: '', frosting_id: '', size_id: '' }
 const EMPTY_FEE = { name: '', type: 'fixed', value: 0 }
 
 const FEE_PRESETS = [
@@ -27,7 +27,7 @@ export default function QuoteBuilder() {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { getQuote, createQuote, updateQuote, getClients, createClient, getProducts, getDiscountPresets } = useData()
+  const { getQuote, createQuote, updateQuote, getClients, createClient, getProducts, getDiscountPresets, getEventTypes, getFlavors, getSizes, getContracts } = useData()
   const { profile } = useAuth()
   const toast = useToast()
   const configured = isSupabaseConfigured()
@@ -38,6 +38,12 @@ export default function QuoteBuilder() {
   const [clients, setClients] = useState([])
   const [products, setProducts] = useState([])
   const [discountPresets, setDiscountPresets] = useState([])
+  const [eventTypes, setEventTypes] = useState([])
+  const [batters, setBatters] = useState([])
+  const [fillings, setFillings] = useState([])
+  const [frostings, setFrostings] = useState([])
+  const [sizes, setSizes] = useState([])
+  const [contracts, setContracts] = useState([])
   const [showProductPicker, setShowProductPicker] = useState(null)
 
   // Form state
@@ -51,6 +57,8 @@ export default function QuoteBuilder() {
   const [discountType, setDiscountType] = useState('fixed')
   const [discountValue, setDiscountValue] = useState(0)
   const [status, setStatus] = useState('draft')
+  const [eventTypeId, setEventTypeId] = useState('')
+  const [contractId, setContractId] = useState('')
   const [items, setItems] = useState([{ ...EMPTY_ITEM }])
   const [fees, setFees] = useState([])
   const [quoteNumber, setQuoteNumber] = useState('')
@@ -133,18 +141,32 @@ export default function QuoteBuilder() {
   const loadInitialData = async () => {
     if (configured) {
       try {
-        const [clientData, productData, presetData] = await Promise.all([
-          getClients(), getProducts(), getDiscountPresets()
-        ])
+        const [clientData, productData] = await Promise.all([getClients(), getProducts()])
         setClients(clientData || [])
         setProducts(productData || [])
-        setDiscountPresets(presetData || [])
       } catch (err) {
-        console.error('Failed to load initial data:', err)
+        console.error('Failed to load clients/products:', err)
         toast.error('Failed to load clients and products')
-        setClients([])
-        setProducts([])
-        setDiscountPresets([])
+      }
+      try {
+        const [presetData, evtData, batData, filData, froData, szData, conData] = await Promise.all([
+          getDiscountPresets().catch(() => []),
+          getEventTypes().catch(() => []),
+          getFlavors('batter').catch(() => []),
+          getFlavors('filling').catch(() => []),
+          getFlavors('frosting').catch(() => []),
+          getSizes().catch(() => []),
+          getContracts().catch(() => []),
+        ])
+        setDiscountPresets(presetData || [])
+        setEventTypes(evtData || [])
+        setBatters(batData || [])
+        setFillings(filData || [])
+        setFrostings(froData || [])
+        setSizes(szData || [])
+        setContracts(conData || [])
+      } catch (err) {
+        console.error('Failed to load options:', err)
       }
     }
 
@@ -162,6 +184,8 @@ export default function QuoteBuilder() {
         setDiscountType(quote.discount_type || 'fixed')
         setDiscountValue(quote.discount_value || 0)
         setStatus(quote.status || 'draft')
+        setEventTypeId(quote.event_type_id || '')
+        setContractId(quote.contract_id || '')
         setQuoteNumber(quote.quote_number || '')
         setFees(quote.fees || [])
         setItems(quote.quote_items?.length ? quote.quote_items.map(i => ({
@@ -170,7 +194,11 @@ export default function QuoteBuilder() {
           unit_price: i.unit_price,
           subtotal: i.subtotal,
           notes: i.notes || '',
-          product_id: i.product_id || null
+          product_id: i.product_id || null,
+          flavor_id: i.flavor_id || '',
+          filling_id: i.filling_id || '',
+          frosting_id: i.frosting_id || '',
+          size_id: i.size_id || '',
         })) : [{ ...EMPTY_ITEM }])
       } catch {
         toast.error('Failed to load quote')
@@ -261,6 +289,8 @@ export default function QuoteBuilder() {
       title, notes, internal_notes: internalNotes,
       valid_until: validUntil || null,
       event_date: eventDate || null,
+      event_type_id: eventTypeId || null,
+      contract_id: contractId || null,
       tax_rate: parseFloat(taxRate) || 0,
       discount_type: discountType,
       discount_value: parseFloat(discountValue) || 0,
@@ -277,7 +307,11 @@ export default function QuoteBuilder() {
       unit_price: parseFloat(i.unit_price) || 0,
       subtotal: parseFloat(i.subtotal) || 0,
       notes: i.notes || null,
-      product_id: i.product_id || null
+      product_id: i.product_id || null,
+      flavor_id: i.flavor_id || null,
+      filling_id: i.filling_id || null,
+      frosting_id: i.frosting_id || null,
+      size_id: i.size_id || null,
     }))
 
     try {
@@ -364,6 +398,24 @@ export default function QuoteBuilder() {
                 <label className="form-label"><Calendar size={14} /> Event Date</label>
                 <input className="form-input" type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
               </div>
+              {eventTypes.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">Event Type</label>
+                  <select className="form-select" value={eventTypeId} onChange={(e) => setEventTypeId(e.target.value)}>
+                    <option value="">Select event type…</option>
+                    {eventTypes.map(et => <option key={et.id} value={et.id}>{et.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {contracts.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">Contract / Terms</label>
+                  <select className="form-select" value={contractId} onChange={(e) => setContractId(e.target.value)}>
+                    <option value="">No contract attached</option>
+                    {contracts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 
@@ -414,6 +466,34 @@ export default function QuoteBuilder() {
                       onChange={(e) => updateItem(i, 'notes', e.target.value)}
                       placeholder="Notes (optional)"
                     />
+                    {(batters.length > 0 || fillings.length > 0 || frostings.length > 0 || sizes.length > 0) && (
+                      <div className="item-options-row">
+                        {batters.length > 0 && (
+                          <select className="form-select item-option-select" value={item.flavor_id || ''} onChange={(e) => updateItem(i, 'flavor_id', e.target.value)}>
+                            <option value="">Flavor…</option>
+                            {batters.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                          </select>
+                        )}
+                        {fillings.length > 0 && (
+                          <select className="form-select item-option-select" value={item.filling_id || ''} onChange={(e) => updateItem(i, 'filling_id', e.target.value)}>
+                            <option value="">Filling…</option>
+                            {fillings.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                        )}
+                        {frostings.length > 0 && (
+                          <select className="form-select item-option-select" value={item.frosting_id || ''} onChange={(e) => updateItem(i, 'frosting_id', e.target.value)}>
+                            <option value="">Frosting…</option>
+                            {frostings.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                          </select>
+                        )}
+                        {sizes.length > 0 && (
+                          <select className="form-select item-option-select" value={item.size_id || ''} onChange={(e) => updateItem(i, 'size_id', e.target.value)}>
+                            <option value="">Size…</option>
+                            {sizes.map(s => <option key={s.id} value={s.id}>{s.name} {s.servings ? `(${s.servings} svg)` : ''}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <input
                     className="form-input item-qty"
