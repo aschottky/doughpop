@@ -1273,21 +1273,76 @@ export function DataProvider({ children }) {
     return data
   }, [q])
 
-  const processRefund = useCallback(async (paymentId, amount, reason) => {
+  const processRefund = useCallback(async (refundData) => {
+    const {
+      payment_id, order_id, invoice_id, amount, reason,
+      stripe_refund_id, stripe_charge_id, stripe_payment_intent_id
+    } = refundData
+
+    const payload = {
+      baker_id: user.id,
+      amount,
+      reason: reason || null,
+      processed_by: user.id,
+      payment_id: payment_id || null,
+      order_id: order_id || null,
+      invoice_id: invoice_id || null,
+      stripe_refund_id: stripe_refund_id || null,
+      stripe_charge_id: stripe_charge_id || null,
+      stripe_payment_intent_id: stripe_payment_intent_id || null,
+      status: 'completed',
+    }
+
     const { data, error } = await supabase
       .from('refunds')
-      .insert({
-        payment_id: paymentId,
-        baker_id: user.id,
-        amount,
-        reason,
-        processed_by: user.id
-      })
+      .insert(payload)
       .select()
       .single()
     if (error) throw error
     return data
   }, [user])
+
+  const resolveOrderFromCharge = useCallback(async (stripeChargeId) => {
+    if (!stripeChargeId) return null
+    const { data: payment } = await q('payments')
+      .select('id, invoice_id, invoices(id, orders(id, order_number))')
+      .eq('stripe_charge_id', stripeChargeId)
+      .maybeSingle()
+    if (payment?.invoices?.orders?.[0]) {
+      return {
+        payment_id: payment.id,
+        invoice_id: payment.invoice_id,
+        order_id: payment.invoices.orders[0].id,
+        order_number: payment.invoices.orders[0].order_number,
+      }
+    }
+    const { data: payment2 } = await q('payments')
+      .select('id, invoice_id, reference_id')
+      .eq('reference_id', stripeChargeId)
+      .maybeSingle()
+    if (payment2) {
+      const { data: order } = await q('orders')
+        .select('id, order_number')
+        .eq('invoice_id', payment2.invoice_id)
+        .maybeSingle()
+      return {
+        payment_id: payment2.id,
+        invoice_id: payment2.invoice_id,
+        order_id: order?.id || null,
+        order_number: order?.order_number || null,
+      }
+    }
+    return null
+  }, [q])
+
+  const getRefunds = useCallback(async () => {
+    const { data, error } = await q('refunds')
+      .select('*, orders(order_number), invoices(invoice_number), payments(amount, method, reference_id)')
+      .eq('baker_id', user.id)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
+  }, [q, user])
 
   const getSystemStats = useCallback(async () => {
     const { data: users, error: usersError } = await q('profiles')
@@ -1373,7 +1428,8 @@ export function DataProvider({ children }) {
     // Mileage
     getMileageLogs, createMileageLog, deleteMileageLog,
     // Admin
-    getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, processRefund, getSystemStats,
+    getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote,
+    processRefund, resolveOrderFromCharge, getRefunds, getSystemStats,
     // Stats
     getDashboardStats
   }
