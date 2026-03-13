@@ -870,39 +870,26 @@ CREATE INDEX IF NOT EXISTS idx_mileage_baker ON mileage_logs(baker_id, trip_date
 -- ============================================================================
 
 -- REFUNDS (track refunds issued by admin)
--- payment_id is nullable: standalone Stripe refunds may not map to a local payment
--- order_id provides direct link to the order (resolved via charge → invoice → order)
 CREATE TABLE IF NOT EXISTS refunds (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  payment_id UUID REFERENCES payments(id) ON DELETE SET NULL,
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  invoice_id UUID REFERENCES invoices(id) ON DELETE SET NULL,
+  payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
   baker_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   amount DECIMAL(10,2) NOT NULL,
   reason TEXT,
-  processed_by UUID REFERENCES profiles(id),
+  processed_by UUID NOT NULL REFERENCES profiles(id),
   stripe_refund_id TEXT,
-  stripe_charge_id TEXT,
-  stripe_payment_intent_id TEXT,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE refunds ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "refunds_admin_all" ON refunds FOR ALL USING (
-  is_admin_user()
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_admin = TRUE)
 );
 CREATE POLICY "refunds_baker_view" ON refunds FOR SELECT USING (baker_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_refunds_payment ON refunds(payment_id);
-CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id);
-CREATE INDEX IF NOT EXISTS idx_refunds_invoice ON refunds(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_refunds_baker ON refunds(baker_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_refunds_stripe_charge ON refunds(stripe_charge_id);
-
--- Also add stripe_charge_id to payments so we can trace the chain
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_charge_id TEXT;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT;
 
 -- Add admin_notes to profiles for internal admin tracking
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS admin_notes TEXT;
