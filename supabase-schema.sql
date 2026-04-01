@@ -891,6 +891,38 @@ CREATE POLICY "refunds_baker_view" ON refunds FOR SELECT USING (baker_id = auth.
 CREATE INDEX IF NOT EXISTS idx_refunds_payment ON refunds(payment_id);
 CREATE INDEX IF NOT EXISTS idx_refunds_baker ON refunds(baker_id, created_at);
 
+-- Permanently remove a user from auth.users (cascades profile + baker data). Admin-only RPC for the dashboard.
+CREATE OR REPLACE FUNCTION public.admin_delete_user(target_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+  IF NOT public.is_admin_user() THEN
+    RAISE EXCEPTION 'Forbidden';
+  END IF;
+  IF target_user_id = auth.uid() THEN
+    RAISE EXCEPTION 'Cannot delete your own account';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = target_user_id) THEN
+    RAISE EXCEPTION 'User not found';
+  END IF;
+
+  UPDATE public.profiles SET referred_by = NULL WHERE referred_by = target_user_id;
+
+  UPDATE public.refunds SET processed_by = auth.uid() WHERE processed_by = target_user_id;
+
+  DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_delete_user(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_delete_user(uuid) TO authenticated;
+
 -- Add admin_notes to profiles for internal admin tracking
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS admin_notes TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;

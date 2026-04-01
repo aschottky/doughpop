@@ -10,7 +10,7 @@ import './Admin.css'
 
 export default function Admin() {
   const navigate = useNavigate()
-  const { getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, getSystemStats } = useData()
+  const { getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, deleteUserAsAdmin, getSystemStats } = useData()
   const { profile } = useAuth()
   const toast = useToast()
   const configured = isSupabaseConfigured()
@@ -115,6 +115,28 @@ export default function Admin() {
     setSelectedUser(user)
     setAdminNote(user.admin_notes || '')
     setShowUserModal(true)
+  }
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return
+    if (!window.confirm('Permanently delete this user and all of their data? This cannot be undone.')) return
+    setProcessing(true)
+    try {
+      await deleteUserAsAdmin(selectedUser.id)
+      setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id))
+      setShowUserModal(false)
+      setSelectedUser(null)
+      toast.success('User account deleted')
+    } catch (err) {
+      const msg = err?.message || err?.error_description || String(err)
+      if (/admin_delete_user|does not exist|42883|404/i.test(msg)) {
+        toast.error('Run the admin_delete_user SQL from supabase-schema.sql in the Supabase SQL editor, then try again.')
+      } else {
+        toast.error(msg || 'Failed to delete user')
+      }
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const filteredUsers = users.filter(u => {
@@ -394,15 +416,12 @@ export default function Admin() {
               <div className="user-detail-section danger-zone">
                 <h5><AlertTriangle size={14} /> Danger Zone</h5>
                 <div className="danger-actions">
-                  <button 
-                    className="btn btn-danger btn-sm" 
-                    onClick={() => {
-                      if (window.confirm('Are you sure you want to delete this user? This cannot be undone.')) {
-                        toast.error('User deletion requires database access')
-                      }
-                    }}
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={handleDeleteUser}
+                    disabled={processing}
                   >
-                    Delete User Account
+                    {processing ? <Loader2 size={14} className="spinner" /> : 'Delete User Account'}
                   </button>
                 </div>
               </div>

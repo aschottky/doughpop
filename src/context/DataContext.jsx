@@ -1281,6 +1281,14 @@ export function DataProvider({ children }) {
     return data
   }, [q])
 
+  /** Calls DB RPC admin_delete_user (requires SQL from supabase-schema.sql on the project). */
+  const deleteUserAsAdmin = useCallback(async (userId) => {
+    if (!configured || !user) throw new Error('Not authenticated')
+    if (user.id === userId) throw new Error('Cannot delete your own account')
+    const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userId })
+    if (error) throw error
+  }, [configured, user])
+
   const processRefund = useCallback(async (paymentId, amount, reason) => {
     const { data, error } = await supabase
       .from('refunds')
@@ -1381,7 +1389,7 @@ export function DataProvider({ children }) {
     // Mileage
     getMileageLogs, createMileageLog, deleteMileageLog,
     // Admin
-    getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, processRefund, getSystemStats,
+    getAllUsers, updateUserTier, updateUserAdminStatus, addAdminNote, deleteUserAsAdmin, processRefund, getSystemStats,
     // Stats
     getDashboardStats
   }
