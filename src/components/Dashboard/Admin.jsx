@@ -128,9 +128,18 @@ export default function Admin() {
       setSelectedUser(null)
       toast.success('User account deleted')
     } catch (err) {
-      const msg = err?.message || err?.error_description || String(err)
-      if (/admin_delete_user|does not exist|42883|404/i.test(msg)) {
-        toast.error('Run the admin_delete_user SQL from supabase-schema.sql in the Supabase SQL editor, then try again.')
+      console.error('deleteUserAsAdmin', err)
+      const msg = err?.message || err?.error_description || err?.hint || String(err)
+      const code = err?.code || ''
+      const missingRpc =
+        code === 'PGRST202' ||
+        code === '42883' ||
+        /could not find the function public\.admin_delete_user/i.test(msg) ||
+        /function public\.admin_delete_user\(uuid\) does not exist/i.test(msg)
+      if (missingRpc) {
+        toast.error(
+          'PostgREST cannot see admin_delete_user yet. In Supabase: re-run the CREATE FUNCTION block from supabase-schema.sql, then Settings → API → Restart, or wait a minute and retry.',
+        )
       } else {
         toast.error(msg || 'Failed to delete user')
       }

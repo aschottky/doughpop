@@ -914,7 +914,12 @@ BEGIN
 
   UPDATE public.profiles SET referred_by = NULL WHERE referred_by = target_user_id;
 
-  UPDATE public.refunds SET processed_by = auth.uid() WHERE processed_by = target_user_id;
+  BEGIN
+    UPDATE public.refunds SET processed_by = auth.uid() WHERE processed_by = target_user_id;
+  EXCEPTION
+    WHEN undefined_table THEN
+      NULL;
+  END;
 
   DELETE FROM auth.users WHERE id = target_user_id;
 END;
