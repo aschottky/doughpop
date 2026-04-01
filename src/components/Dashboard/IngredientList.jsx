@@ -3,9 +3,15 @@ import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   Plus, Trash2, Loader2, Search, Edit2, X, Check,
-  Beaker, Package, Paintbrush, Tag, Upload, Download, Sparkles
+  Beaker, Package, Paintbrush, Tag, Upload, Download, Sparkles, Store
 } from 'lucide-react'
 import { useToast } from '../Shared/Toast'
+import { useAuth } from '../../context/AuthContext'
+import {
+  DEFAULT_INGREDIENT_VENDORS,
+  getPresetVendorsFromProfile,
+  dedupeVendorList,
+} from '../../lib/ingredientVendors'
 import './IngredientList.css'
 
 const TYPE_TABS = [
@@ -41,6 +47,7 @@ const ING_CSV_FIELDS = [
 
 export default function IngredientList() {
   const { getIngredients, createIngredient, updateIngredient, deleteIngredient } = useData()
+  const { user, profile, patchProfile } = useAuth()
   const toast = useToast()
   const configured = isSupabaseConfigured()
 
@@ -66,6 +73,11 @@ export default function IngredientList() {
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const selectAllRef = useRef(null)
 
+  const [showVendorModal, setShowVendorModal] = useState(false)
+  const [vendorEditList, setVendorEditList] = useState([])
+  const [newVendorInput, setNewVendorInput] = useState('')
+  const [savingVendors, setSavingVendors] = useState(false)
+
   useEffect(() => { loadData() }, [configured])
   useEffect(() => { setSelectedIds([]) }, [typeTab])
 
@@ -83,15 +95,50 @@ export default function IngredientList() {
   }
 
   const knownVendors = useMemo(() => {
-    const set = new Set()
-    items.forEach(i => { if (i.supplier) set.add(i.supplier) })
-    return [...set].sort()
-  }, [items])
+    const preset = getPresetVendorsFromProfile(profile)
+    const fromItems = items.map(i => i.supplier).filter(Boolean)
+    return dedupeVendorList([...preset, ...fromItems])
+  }, [profile?.ingredient_vendors, items])
 
   const filteredVendors = useMemo(() => {
     if (!vendorInput) return knownVendors
     return knownVendors.filter(v => v.toLowerCase().includes(vendorInput.toLowerCase()))
   }, [knownVendors, vendorInput])
+
+  const mergeSupplierIntoProfileList = async (supplierName) => {
+    const name = supplierName?.trim()
+    if (!configured || !user || !name || !patchProfile) return
+    const preset = getPresetVendorsFromProfile(profile)
+    if (preset.some((p) => p.toLowerCase() === name.toLowerCase())) return
+    try {
+      await patchProfile({ ingredient_vendors: dedupeVendorList([...preset, name]) })
+    } catch (e) {
+      console.warn('Could not save vendor to profile:', e)
+    }
+  }
+
+  const openVendorModal = () => {
+    setVendorEditList(dedupeVendorList([...getPresetVendorsFromProfile(profile)]))
+    setNewVendorInput('')
+    setShowVendorModal(true)
+  }
+
+  const saveVendorListFromModal = async () => {
+    setSavingVendors(true)
+    try {
+      await patchProfile({ ingredient_vendors: dedupeVendorList(vendorEditList) })
+      toast.success('Vendor list saved')
+      setShowVendorModal(false)
+    } catch (e) {
+      toast.error(e.message || 'Failed to save vendors')
+    } finally {
+      setSavingVendors(false)
+    }
+  }
+
+  const resetVendorsToDefaults = () => {
+    setVendorEditList([...DEFAULT_INGREDIENT_VENDORS])
+  }
 
   const filtered = items.filter(i => {
     const type = i.ingredient_type || 'ingredient'
@@ -190,6 +237,7 @@ export default function IngredientList() {
       }
       setShowForm(false)
       setEditId(null)
+      await mergeSupplierIntoProfileList(form.supplier)
     } catch (err) {
       toast.error(err.message)
     } finally {
@@ -252,8 +300,12 @@ export default function IngredientList() {
   const [loadingStarter, setLoadingStarter] = useState(false)
 
   const STARTER_MAP = {
-    name: 0, category: 1, supplier: 2, package_size: 3,
-    package_unit: 4, unit: 5, unit_cost: 6,
+    name: 0,
+    category: 1,
+    package_size: 2,
+    package_unit: 3,
+    unit: 4,
+    unit_cost: 5,
   }
 
   const loadStarterList = async () => {
@@ -287,6 +339,7 @@ export default function IngredientList() {
     if (!csvData?.length) return
     setImporting(true)
     let imported = 0
+    const suppliersFromImport = new Set()
     try {
       for (const row of csvData) {
         const data = {}
@@ -297,6 +350,7 @@ export default function IngredientList() {
           }
         })
         if (!data.name) continue
+        if (data.supplier?.trim()) suppliersFromImport.add(data.supplier.trim())
         const autoType = inferType(data.category)
         data.ingredient_type = autoType || typeTab
         try {
@@ -304,6 +358,16 @@ export default function IngredientList() {
           setItems(prev => [...prev, created])
           imported++
         } catch {}
+      }
+      if (suppliersFromImport.size && configured && user && patchProfile) {
+        const preset = getPresetVendorsFromProfile(profile)
+        const presetLower = new Set(preset.map((p) => p.toLowerCase()))
+        const hasNew = [...suppliersFromImport].some((s) => !presetLower.has(s.toLowerCase()))
+        if (hasNew) {
+          try {
+            await patchProfile({ ingredient_vendors: dedupeVendorList([...preset, ...suppliersFromImport]) })
+          } catch (_) {}
+        }
       }
       toast.success(`Imported ${imported} item${imported !== 1 ? 's' : ''}`)
       setShowImport(false)
@@ -356,6 +420,9 @@ export default function IngredientList() {
           </button>
           <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
             <Upload size={16} /> Import CSV
+          </button>
+          <button className="btn btn-secondary" type="button" onClick={openVendorModal} disabled={!configured || !user}>
+            <Store size={16} /> Vendors
           </button>
           <button className="btn btn-primary" onClick={handleNew}>
             <Plus size={16} /> Add {typeTab === 'ingredient' ? 'Ingredient' : 'Material'}
@@ -624,6 +691,79 @@ export default function IngredientList() {
           </table>
         )}
       </div>
+
+      {showVendorModal && (
+        <div className="ing-vendor-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="ing-vendor-modal-title">
+          <div className="ing-vendor-modal card card-padding">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+              <div>
+                <h2 id="ing-vendor-modal-title" style={{ margin: 0, fontSize: '1.1rem' }}>Vendor list</h2>
+                <p style={{ margin: '6px 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Shown alphabetically in the ingredient form. Names you use on ingredients are always included in the dropdown too.
+                </p>
+              </div>
+              <button type="button" className="btn btn-ghost btn-xs" onClick={() => setShowVendorModal(false)} aria-label="Close"><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              <input
+                className="form-input"
+                style={{ flex: 1, minWidth: '160px' }}
+                value={newVendorInput}
+                onChange={(e) => setNewVendorInput(e.target.value)}
+                placeholder="Add vendor…"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const t = newVendorInput.trim()
+                    if (t && !vendorEditList.some((v) => v.toLowerCase() === t.toLowerCase())) {
+                      setVendorEditList((prev) => dedupeVendorList([...prev, t]))
+                      setNewVendorInput('')
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  const t = newVendorInput.trim()
+                  if (t && !vendorEditList.some((v) => v.toLowerCase() === t.toLowerCase())) {
+                    setVendorEditList((prev) => dedupeVendorList([...prev, t]))
+                    setNewVendorInput('')
+                  }
+                }}
+              >
+                Add
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={resetVendorsToDefaults}>
+                Restore defaults
+              </button>
+            </div>
+            <ul className="ing-vendor-modal-list">
+              {dedupeVendorList(vendorEditList).map((v) => (
+                <li key={v} className="ing-vendor-modal-row">
+                  <span>{v}</span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    style={{ color: 'var(--error)' }}
+                    onClick={() => setVendorEditList((prev) => prev.filter((x) => x.toLowerCase() !== v.toLowerCase()))}
+                    aria-label={`Remove ${v}`}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="ing-form-actions" style={{ marginTop: '16px', paddingTop: '12px' }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setShowVendorModal(false)}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={saveVendorListFromModal} disabled={savingVendors}>
+                {savingVendors ? <Loader2 size={15} className="spinner" /> : <Check size={15} />} Save list
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

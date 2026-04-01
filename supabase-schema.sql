@@ -903,6 +903,9 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tax_apply_all BOOLEAN DEFAULT FALS
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS default_pricing_method TEXT DEFAULT 'set_price';
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS default_margin_percent DECIMAL(5,2) DEFAULT 30;
 
+-- Per-baker curated vendor list for ingredients (JSON array of strings). NULL = use app defaults only until customized.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS ingredient_vendors JSONB DEFAULT NULL;
+
 
 -- ============================================================================
 -- CONFIGURABLE DROPDOWNS: Event Types, Flavors, Sizes

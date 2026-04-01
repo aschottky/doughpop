@@ -53,6 +53,21 @@
 }
 .ing-vendor-option:hover { background: var(--surface-hover); }
 
+.ing-vendor-modal-overlay {
+  position: fixed; inset: 0; z-index: 1000; background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.ing-vendor-modal { width: 100%; max-width: 420px; max-height: 85vh; overflow: auto; }
+.ing-vendor-modal-list {
+  list-style: none; margin: 0; padding: 0; border: 1px solid var(--border-light);
+  border-radius: var(--radius); max-height: 220px; overflow-y: auto;
+}
+.ing-vendor-modal-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; font-size: 0.875rem; border-bottom: 1px solid var(--border-light);
+}
+.ing-vendor-modal-row:last-child { border-bottom: none; }
+
 .ing-empty { text-align: center; padding: 48px; color: var(--text-muted); }
 .ing-empty p { margin-bottom: 12px; }
 

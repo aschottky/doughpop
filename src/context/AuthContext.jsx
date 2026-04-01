@@ -122,6 +122,20 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  /** Partial profile update (does not use upsert — safe for single-field patches) */
+  const patchProfile = async (partial) => {
+    if (!user) throw new Error('No user logged in')
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ ...partial, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .select()
+      .single()
+    if (error) throw error
+    setProfile(data)
+    return data
+  }
+
   const value = {
     user,
     profile,
@@ -135,6 +149,7 @@ export function AuthProvider({ children }) {
     signOut,
     resetPassword,
     updateProfile,
+    patchProfile,
     fetchProfile: () => user && fetchProfile(user.id)
   }
 
