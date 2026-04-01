@@ -311,7 +311,9 @@ export default function IngredientList() {
   const loadStarterList = async () => {
     setLoadingStarter(true)
     try {
-      const res = await fetch('/starter-ingredients.csv')
+      const res = await fetch(`/starter-ingredients.csv?r=${import.meta.env.VITE_STARTER_CSV_REV || '3'}`, {
+        cache: 'no-store',
+      })
       const text = await res.text()
       const result = parseCSVText(text)
       if (!result) { toast.error('Failed to parse starter list'); return }
@@ -439,7 +441,7 @@ export default function IngredientList() {
           <button className="btn btn-ghost btn-sm" onClick={handleExportCSV} title="Export current list">
             <Download size={16} /> Export
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={loadStarterList} disabled={loadingStarter} title="Load 90+ common baking ingredients">
+          <button className="btn btn-ghost btn-sm" onClick={loadStarterList} disabled={loadingStarter} title="Load curated starter CSV (ingredients, packaging, pantry)">
             {loadingStarter ? <Loader2 size={16} className="spinner" /> : <Sparkles size={16} />} Starter List
           </button>
           <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
@@ -643,7 +645,7 @@ export default function IngredientList() {
             <p style={{ fontSize: '0.8rem', marginBottom: '12px' }}>Add one manually, import your own CSV, or start with our curated list.</p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button className="btn btn-secondary btn-sm" onClick={loadStarterList} disabled={loadingStarter}>
-                {loadingStarter ? <Loader2 size={14} className="spinner" /> : <Sparkles size={14} />} Load Starter List (90+)
+                {loadingStarter ? <Loader2 size={14} className="spinner" /> : <Sparkles size={14} />} Load starter list
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)}><Upload size={14} /> Import CSV</button>
               <button className="btn btn-primary btn-sm" onClick={handleNew}><Plus size={14} /> Add Manually</button>
