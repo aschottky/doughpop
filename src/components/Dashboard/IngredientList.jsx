@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
@@ -23,7 +23,6 @@ const EMPTY_ITEM = {
   name: '', category: '', unit: 'oz', unit_cost: '',
   stock_quantity: '', reorder_point: '', supplier: '', notes: '',
   ingredient_type: 'ingredient',
-  avg_price_walmart: '', avg_price_costco: '', avg_price_sams: '',
   package_size: '', package_unit: '',
 }
 
@@ -35,9 +34,6 @@ const ING_CSV_FIELDS = [
   { key: 'supplier', label: 'Vendor / Supplier' },
   { key: 'package_size', label: 'Pack Size (qty)' },
   { key: 'package_unit', label: 'Pack Unit (e.g. lb bag)' },
-  { key: 'avg_price_walmart', label: 'Walmart Price' },
-  { key: 'avg_price_costco', label: 'Costco Price' },
-  { key: 'avg_price_sams', label: "Sam's Price" },
   { key: 'stock_quantity', label: 'In Stock' },
   { key: 'reorder_point', label: 'Reorder Point' },
   { key: 'notes', label: 'Notes' },
@@ -57,6 +53,8 @@ export default function IngredientList() {
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({ ...EMPTY_ITEM })
   const [saving, setSaving] = useState(false)
+  const [vendorInput, setVendorInput] = useState('')
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false)
 
   const [showImport, setShowImport] = useState(false)
   const [csvData, setCsvData] = useState(null)
@@ -79,6 +77,17 @@ export default function IngredientList() {
     }
   }
 
+  const knownVendors = useMemo(() => {
+    const set = new Set()
+    items.forEach(i => { if (i.supplier) set.add(i.supplier) })
+    return [...set].sort()
+  }, [items])
+
+  const filteredVendors = useMemo(() => {
+    if (!vendorInput) return knownVendors
+    return knownVendors.filter(v => v.toLowerCase().includes(vendorInput.toLowerCase()))
+  }, [knownVendors, vendorInput])
+
   const filtered = items.filter(i => {
     const type = i.ingredient_type || 'ingredient'
     if (type !== typeTab) return false
@@ -95,16 +104,16 @@ export default function IngredientList() {
       unit_cost: item.unit_cost ?? '', stock_quantity: item.stock_quantity ?? '',
       reorder_point: item.reorder_point ?? '', supplier: item.supplier || '',
       notes: item.notes || '', ingredient_type: item.ingredient_type || 'ingredient',
-      avg_price_walmart: item.avg_price_walmart ?? '', avg_price_costco: item.avg_price_costco ?? '',
-      avg_price_sams: item.avg_price_sams ?? '', package_size: item.package_size ?? '',
-      package_unit: item.package_unit || '',
+      package_size: item.package_size ?? '', package_unit: item.package_unit || '',
     })
+    setVendorInput(item.supplier || '')
     setEditId(item.id)
     setShowForm(true)
   }
 
   const handleNew = () => {
     setForm({ ...EMPTY_ITEM, ingredient_type: typeTab })
+    setVendorInput('')
     setEditId(null)
     setShowForm(true)
   }
@@ -114,9 +123,6 @@ export default function IngredientList() {
     unit_cost: formData.unit_cost === '' ? null : parseFloat(formData.unit_cost),
     stock_quantity: formData.stock_quantity === '' ? null : parseFloat(formData.stock_quantity),
     reorder_point: formData.reorder_point === '' ? null : parseFloat(formData.reorder_point),
-    avg_price_walmart: formData.avg_price_walmart === '' ? null : parseFloat(formData.avg_price_walmart),
-    avg_price_costco: formData.avg_price_costco === '' ? null : parseFloat(formData.avg_price_costco),
-    avg_price_sams: formData.avg_price_sams === '' ? null : parseFloat(formData.avg_price_sams),
     package_size: formData.package_size === '' ? null : parseFloat(formData.package_size),
   })
 
@@ -169,13 +175,10 @@ export default function IngredientList() {
       if (hl.includes('name') || hl === 'item' || hl === 'ingredient') autoMap['name'] = i
       else if (hl.includes('category') || hl.includes('type')) autoMap['category'] = i
       else if (hl === 'unit' || hl.includes('measure')) autoMap['unit'] = i
-      else if (hl.includes('yourcost') || (hl.includes('cost') && !hl.includes('costco'))) autoMap['unit_cost'] = i
+      else if (hl.includes('yourcost') || hl.includes('price') || (hl.includes('cost') && !hl.includes('costco'))) autoMap['unit_cost'] = i
       else if (hl.includes('vendor') || hl.includes('supplier') || hl.includes('source')) autoMap['supplier'] = i
       else if (hl.includes('packsize') || (hl.includes('pack') && hl.includes('size'))) autoMap['package_size'] = i
       else if (hl.includes('packunit') || (hl.includes('pack') && hl.includes('unit'))) autoMap['package_unit'] = i
-      else if (hl.includes('walmart')) autoMap['avg_price_walmart'] = i
-      else if (hl.includes('costco')) autoMap['avg_price_costco'] = i
-      else if (hl.includes('sam')) autoMap['avg_price_sams'] = i
       else if (hl.includes('stock') || hl.includes('onhand') || hl.includes('instock')) autoMap['stock_quantity'] = i
       else if (hl.includes('reorder') || hl.includes('minimum')) autoMap['reorder_point'] = i
       else if (hl.includes('note')) autoMap['notes'] = i
@@ -202,7 +205,6 @@ export default function IngredientList() {
   const STARTER_MAP = {
     name: 0, category: 1, supplier: 2, package_size: 3,
     package_unit: 4, unit: 5, unit_cost: 6,
-    avg_price_walmart: 7, avg_price_costco: 8, avg_price_sams: 9,
   }
 
   const loadStarterList = async () => {
@@ -271,9 +273,8 @@ export default function IngredientList() {
       Name: i.name, Category: i.category || '', Unit: i.unit,
       'Your Cost': i.unit_cost ?? '', Vendor: i.supplier || '',
       'Pack Size': i.package_size ?? '', 'Pack Unit': i.package_unit || '',
-      Walmart: i.avg_price_walmart ?? '', Costco: i.avg_price_costco ?? '',
-      "Sam's": i.avg_price_sams ?? '', Stock: i.stock_quantity ?? '',
-      'Reorder Point': i.reorder_point ?? '', Notes: i.notes || '',
+      Stock: i.stock_quantity ?? '', 'Reorder Point': i.reorder_point ?? '',
+      Notes: i.notes || '',
     }))
     if (!rows.length) return
     const headers = Object.keys(rows[0])
@@ -295,7 +296,7 @@ export default function IngredientList() {
       <div className="page-header">
         <div className="page-header-left">
           <h1>Ingredients & Materials</h1>
-          <p>Master list with vendors, pack sizes, and multi-store pricing</p>
+          <p>Master list with vendors and pack sizes</p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn btn-ghost btn-sm" onClick={handleExportCSV} title="Export current list">
@@ -336,7 +337,7 @@ export default function IngredientList() {
                 Upload a CSV or spreadsheet export. The first row should be column headers.
               </p>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Supported columns: Name, Category, Unit, Cost/Price, Vendor/Supplier, Pack Size, Pack Unit, Walmart, Costco, Sam's, Stock, Reorder Point, Notes
+                Supported columns: Name, Category, Unit, Cost/Price, Vendor/Supplier, Pack Size, Pack Unit, Stock, Reorder Point, Notes
               </p>
               <input type="file" accept=".csv,.txt" onChange={handleCSVFile} style={{ fontSize: '0.875rem' }} />
             </div>
@@ -362,10 +363,10 @@ export default function IngredientList() {
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px' }}>Preview (first 3 rows):</p>
               <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
                 <table className="ing-table" style={{ fontSize: '0.8rem' }}>
-                  <thead><tr>{ING_CSV_FIELDS.filter(f => csvMapping[f.key] !== undefined).map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
+                  <thead><tr>{ING_CSV_FIELDS.filter(f => csvMapping[f.key] != null).map(f => <th key={f.key}>{f.label}</th>)}</tr></thead>
                   <tbody>
                     {csvData.slice(0, 3).map((row, ri) => (
-                      <tr key={ri}>{ING_CSV_FIELDS.filter(f => csvMapping[f.key] !== undefined).map(f => <td key={f.key}>{row[csvMapping[f.key]] || '—'}</td>)}</tr>
+                      <tr key={ri}>{ING_CSV_FIELDS.filter(f => csvMapping[f.key] != null).map(f => <td key={f.key}>{row[csvMapping[f.key]] || '—'}</td>)}</tr>
                     ))}
                   </tbody>
                 </table>
@@ -413,9 +414,25 @@ export default function IngredientList() {
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div className="form-group">
-              <label className="form-label">Vendor / Supplier</label>
-              <input className="form-input" value={form.supplier} onChange={e => set('supplier', e.target.value)} placeholder="e.g. Costco, Walmart" />
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label className="form-label">Vendor</label>
+              <input
+                className="form-input"
+                value={vendorInput}
+                onChange={e => { setVendorInput(e.target.value); set('supplier', e.target.value); setShowVendorDropdown(true) }}
+                onFocus={() => setShowVendorDropdown(true)}
+                onBlur={() => setTimeout(() => setShowVendorDropdown(false), 150)}
+                placeholder="Type or select vendor..."
+              />
+              {showVendorDropdown && filteredVendors.length > 0 && (
+                <div className="ing-vendor-dropdown">
+                  {filteredVendors.map(v => (
+                    <div key={v} className="ing-vendor-option"
+                      onMouseDown={() => { setVendorInput(v); set('supplier', v); setShowVendorDropdown(false) }}
+                    >{v}</div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -438,22 +455,6 @@ export default function IngredientList() {
             <div className="form-group">
               <label className="form-label">Your Cost (per pack)</label>
               <input className="form-input" type="number" step="0.01" value={form.unit_cost} onChange={e => set('unit_cost', e.target.value)} placeholder="0.00" />
-            </div>
-          </div>
-
-          <div className="ing-form-subtitle">Store Price Comparison</div>
-          <div className="ing-form-grid ing-form-grid-3">
-            <div className="form-group">
-              <label className="form-label">Walmart</label>
-              <input className="form-input" type="number" step="0.01" value={form.avg_price_walmart} onChange={e => set('avg_price_walmart', e.target.value)} placeholder="0.00" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Costco</label>
-              <input className="form-input" type="number" step="0.01" value={form.avg_price_costco} onChange={e => set('avg_price_costco', e.target.value)} placeholder="0.00" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Sam's Club</label>
-              <input className="form-input" type="number" step="0.01" value={form.avg_price_sams} onChange={e => set('avg_price_sams', e.target.value)} placeholder="0.00" />
             </div>
           </div>
 
@@ -505,9 +506,6 @@ export default function IngredientList() {
                 <th>Pack Size</th>
                 <th>Unit</th>
                 <th>Your Cost</th>
-                <th>Walmart</th>
-                <th>Costco</th>
-                <th>Sam's</th>
                 <th>Stock</th>
                 <th></th>
               </tr>
@@ -525,9 +523,6 @@ export default function IngredientList() {
                     <td>{item.package_size ? `${item.package_size} ${item.package_unit || ''}` : '—'}</td>
                     <td>{item.unit}</td>
                     <td>{fmt(item.unit_cost)}</td>
-                    <td>{fmt(item.avg_price_walmart)}</td>
-                    <td>{fmt(item.avg_price_costco)}</td>
-                    <td>{fmt(item.avg_price_sams)}</td>
                     <td>
                       <span className={lowStock ? 'ing-stock-low' : ''}>{item.stock_quantity ?? '—'}</span>
                     </td>

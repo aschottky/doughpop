@@ -36,6 +36,16 @@
 .ing-row-low { background: var(--error-bg) !important; }
 .ing-stock-low { color: var(--error); font-weight: 600; }
 
+.ing-vendor-dropdown {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-height: 160px; overflow-y: auto;
+}
+.ing-vendor-option {
+  padding: 8px 12px; font-size: 0.875rem; cursor: pointer;
+}
+.ing-vendor-option:hover { background: var(--surface-hover); }
+
 .ing-empty { text-align: center; padding: 48px; color: var(--text-muted); }
 .ing-empty p { margin-bottom: 12px; }
 
