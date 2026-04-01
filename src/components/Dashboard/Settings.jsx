@@ -37,10 +37,31 @@ export default function Settings() {
     e.preventDefault()
     setSaving(true)
     try {
-      await updateProfile(form)
+      const payload = {
+        full_name: form.full_name,
+        business_name: form.business_name,
+        email: form.email,
+        phone: form.phone,
+        website: form.website,
+        bio: form.bio,
+        tax_name: form.tax_name,
+        tax_apply_all: form.tax_apply_all,
+        default_pricing_method: form.default_pricing_method,
+        default_tax_rate: form.default_tax_rate === '' ? null : parseFloat(form.default_tax_rate),
+        default_margin_percent: form.default_margin_percent === '' ? null : parseFloat(form.default_margin_percent),
+        hourly_rate: form.hourly_rate === '' ? null : parseFloat(form.hourly_rate),
+      }
+      await updateProfile(payload)
       toast.success('Profile updated!')
     } catch (err) {
-      toast.error(err.message || 'Failed to update profile')
+      const msg = err.message || 'Failed to update profile'
+      if (/schema cache|column.*profiles/i.test(msg)) {
+        toast.error(
+          'Your database is missing a profiles column. Run supabase-profiles-patch.sql in the Supabase SQL editor, then try again.',
+        )
+      } else {
+        toast.error(msg)
+      }
     } finally {
       setSaving(false)
     }
