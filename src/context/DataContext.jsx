@@ -816,6 +816,14 @@ export function DataProvider({ children }) {
     return data
   }, [q, user])
 
+  const deleteIngredient = useCallback(async (id) => {
+    const { error } = await q('ingredients')
+      .delete()
+      .eq('id', id)
+      .eq('baker_id', user.id)
+    if (error) throw error
+  }, [q, user])
+
   const adjustInventory = useCallback(async (ingredientId, changeAmount, reason, notes = '', orderId = null) => {
     const { data: ingredient } = await q('ingredients')
       .select('stock_quantity')
@@ -1351,7 +1359,7 @@ export function DataProvider({ children }) {
     // Email
     logEmail, getEmailLog, getEmailTemplates, saveEmailTemplate,
     // Inventory
-    getIngredients, createIngredient, updateIngredient, adjustInventory,
+    getIngredients, createIngredient, updateIngredient, deleteIngredient, adjustInventory,
     // Bundles
     getBundles, createBundle, updateBundle, deleteBundle,
     // Shopping List
