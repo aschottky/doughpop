@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
@@ -62,7 +62,12 @@ export default function IngredientList() {
   const [csvMapping, setCsvMapping] = useState({})
   const [importing, setImporting] = useState(false)
 
+  const [selectedIds, setSelectedIds] = useState([])
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const selectAllRef = useRef(null)
+
   useEffect(() => { loadData() }, [configured])
+  useEffect(() => { setSelectedIds([]) }, [typeTab])
 
   const loadData = async () => {
     if (!configured) { setLoading(false); return }
@@ -95,6 +100,49 @@ export default function IngredientList() {
     if (categoryFilter && i.category !== categoryFilter) return false
     return true
   })
+
+  const filteredIdSet = useMemo(() => new Set(filtered.map(i => i.id)), [filtered])
+  const allFilteredSelected = filtered.length > 0 && filtered.every(i => selectedIds.includes(i.id))
+  const someFilteredSelected = filtered.some(i => selectedIds.includes(i.id))
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someFilteredSelected && !allFilteredSelected
+    }
+  }, [someFilteredSelected, allFilteredSelected])
+
+  const toggleRowSelected = (id) => {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
+  }
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds(prev => prev.filter(id => !filteredIdSet.has(id)))
+    } else {
+      setSelectedIds(prev => [...new Set([...prev, ...filtered.map(i => i.id)])])
+    }
+  }
+
+  const selectedInViewCount = filtered.filter(i => selectedIds.includes(i.id)).length
+
+  const handleBulkDelete = async () => {
+    const ids = filtered.filter(i => selectedIds.includes(i.id)).map(i => i.id)
+    if (!ids.length) return
+    if (!confirm(`Delete ${ids.length} ${ids.length === 1 ? 'item' : 'items'}? This cannot be undone.`)) return
+    setBulkDeleting(true)
+    try {
+      for (const id of ids) {
+        await deleteIngredient(id)
+      }
+      setItems(prev => prev.filter(i => !ids.includes(i.id)))
+      setSelectedIds(prev => prev.filter(id => !ids.includes(id)))
+      toast.success(`Deleted ${ids.length} ${ids.length === 1 ? 'item' : 'items'}`)
+    } catch (err) {
+      toast.error(err.message || 'Bulk delete failed')
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
 
   const set = (field, val) => setForm(f => ({ ...f, [field]: val }))
 
@@ -154,6 +202,7 @@ export default function IngredientList() {
     try {
       await deleteIngredient(id)
       setItems(prev => prev.filter(i => i.id !== id))
+      setSelectedIds(prev => prev.filter(x => x !== id))
       toast.success('Deleted')
     } catch (err) {
       toast.error(err.message)
@@ -394,6 +443,18 @@ export default function IngredientList() {
           <option value="">All categories</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        {selectedInViewCount > 0 && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+            style={{ color: 'var(--error)' }}
+          >
+            {bulkDeleting ? <Loader2 size={15} className="spinner" /> : <Trash2 size={15} />}
+            Delete selected ({selectedInViewCount})
+          </button>
+        )}
       </div>
 
       {/* Add/Edit Form */}
@@ -501,6 +562,16 @@ export default function IngredientList() {
           <table className="ing-table">
             <thead>
               <tr>
+                <th className="ing-col-check">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="ing-row-check"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAllFiltered}
+                    aria-label="Select all rows in this list"
+                  />
+                </th>
                 <th>Name</th>
                 <th>Vendor</th>
                 <th>Pack Size</th>
@@ -513,8 +584,18 @@ export default function IngredientList() {
             <tbody>
               {filtered.map(item => {
                 const lowStock = item.reorder_point && item.stock_quantity != null && parseFloat(item.stock_quantity) <= parseFloat(item.reorder_point)
+                const rowSelected = selectedIds.includes(item.id)
                 return (
-                  <tr key={item.id} className={lowStock ? 'ing-row-low' : ''}>
+                  <tr key={item.id} className={`${lowStock ? 'ing-row-low' : ''} ${rowSelected ? 'ing-row-selected' : ''}`}>
+                    <td className="ing-col-check">
+                      <input
+                        type="checkbox"
+                        className="ing-row-check"
+                        checked={rowSelected}
+                        onChange={() => toggleRowSelected(item.id)}
+                        aria-label={`Select ${item.name}`}
+                      />
+                    </td>
                     <td className="ing-name-cell">
                       <span>{item.name}</span>
                       {item.category && <span className="ing-pkg">{item.category}</span>}

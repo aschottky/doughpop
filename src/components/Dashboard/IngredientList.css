@@ -31,6 +31,13 @@
 .ing-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); }
 .ing-table tbody tr:hover { background: var(--surface-hover); }
 
+.ing-col-check { width: 40px; vertical-align: middle; text-align: center; }
+.ing-row-check {
+  width: 1rem; height: 1rem; accent-color: var(--honey);
+  cursor: pointer;
+}
+.ing-row-selected { background: var(--surface-hover) !important; }
+
 .ing-name-cell { display: flex; flex-direction: column; }
 .ing-pkg { font-size: 0.75rem; color: var(--text-muted); }
 .ing-row-low { background: var(--error-bg) !important; }
