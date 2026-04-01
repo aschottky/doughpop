@@ -369,7 +369,7 @@ export default function IngredientList() {
               </p>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button className="btn btn-ghost" onClick={() => { setCsvData(null); setCsvHeaders([]); setCsvMapping({}) }}>Back</button>
-                <button className="btn btn-primary" onClick={handleImport} disabled={importing || !csvMapping.name}>
+                <button className="btn btn-primary" onClick={handleImport} disabled={importing || csvMapping.name === undefined}>
                   {importing ? <><Loader2 size={15} className="spinner" /> Importing...</> : <><Upload size={15} /> Import {csvData.length} Items</>}
                 </button>
               </div>
