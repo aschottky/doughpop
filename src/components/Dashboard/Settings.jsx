@@ -64,13 +64,19 @@ export default function Settings() {
         toast.success('Profile updated!')
       }
     } catch (err) {
-      const msg = err.message || 'Failed to update profile'
+      const msg = err?.message || err?.msg || String(err)
       if (/schema cache|column.*profiles/i.test(msg)) {
         toast.error(
           'Your database is missing a profiles column. Run supabase-profiles-patch.sql in the Supabase SQL editor, then try again.',
         )
+      } else if (
+        /already (been )?registered|already in use|email.*(taken|exists)|duplicate key|user_already_exists/i.test(
+          msg,
+        )
+      ) {
+        toast.error('That email is already used by another account. Use a different address or sign in with that account.')
       } else {
-        toast.error(msg)
+        toast.error(msg || 'Failed to update profile')
       }
     } finally {
       setSaving(false)
