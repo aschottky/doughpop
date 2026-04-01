@@ -199,6 +199,12 @@ export default function IngredientList() {
 
   const [loadingStarter, setLoadingStarter] = useState(false)
 
+  const STARTER_MAP = {
+    name: 0, category: 1, supplier: 2, package_size: 3,
+    package_unit: 4, unit: 5, unit_cost: 6,
+    avg_price_walmart: 7, avg_price_costco: 8, avg_price_sams: 9,
+  }
+
   const loadStarterList = async () => {
     setLoadingStarter(true)
     try {
@@ -208,7 +214,7 @@ export default function IngredientList() {
       if (!result) { toast.error('Failed to parse starter list'); return }
       setCsvHeaders(result.headers)
       setCsvData(result.rows)
-      setCsvMapping(result.autoMap)
+      setCsvMapping(STARTER_MAP)
       setShowImport(true)
     } catch (err) {
       toast.error('Failed to load starter list')
