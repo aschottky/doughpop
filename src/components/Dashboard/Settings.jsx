@@ -67,7 +67,7 @@ export default function Settings() {
       const msg = err?.message || err?.msg || String(err)
       if (/schema cache|column.*profiles/i.test(msg)) {
         toast.error(
-          'Your database is missing a profiles column. Run supabase-profiles-patch.sql in the Supabase SQL editor, then try again.',
+          `${msg} — Add missing columns: paste supabase-profiles-patch.sql from the doughpop repo into Supabase → SQL, run it, then Settings → API → Restart if needed.`,
         )
       } else if (
         /already (been )?registered|already in use|email.*(taken|exists)|duplicate key|user_already_exists/i.test(
