@@ -3,7 +3,7 @@ import { useData } from '../../context/DataContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
   Plus, Trash2, Loader2, Search, Edit2, X, Check,
-  Beaker, Package, Paintbrush, Tag, Upload, Download
+  Beaker, Package, Paintbrush, Tag, Upload, Download, Sparkles
 } from 'lucide-react'
 import { useToast } from '../Shared/Toast'
 import './IngredientList.css'
@@ -154,42 +154,76 @@ export default function IngredientList() {
     }
   }
 
-  // --- CSV Import ---
+  // --- CSV parsing ---
+  const parseCSVText = (text) => {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    if (lines.length < 2) return null
+    const headers = lines[0].split(',').map(h => h.replace(/^"/, '').replace(/"$/, '').trim())
+    const rows = lines.slice(1).map(line => {
+      const vals = line.match(/(".*?"|[^",]+)/g) || []
+      return vals.map(v => v.replace(/^"/, '').replace(/"$/, '').trim())
+    })
+    const autoMap = {}
+    headers.forEach((h, i) => {
+      const hl = h.toLowerCase().replace(/[^a-z]/g, '')
+      if (hl.includes('name') || hl === 'item' || hl === 'ingredient') autoMap['name'] = i
+      else if (hl.includes('category') || hl.includes('type')) autoMap['category'] = i
+      else if (hl === 'unit' || hl.includes('measure')) autoMap['unit'] = i
+      else if (hl.includes('yourcost') || (hl.includes('cost') && !hl.includes('costco'))) autoMap['unit_cost'] = i
+      else if (hl.includes('vendor') || hl.includes('supplier') || hl.includes('source')) autoMap['supplier'] = i
+      else if (hl.includes('packsize') || (hl.includes('pack') && hl.includes('size'))) autoMap['package_size'] = i
+      else if (hl.includes('packunit') || (hl.includes('pack') && hl.includes('unit'))) autoMap['package_unit'] = i
+      else if (hl.includes('walmart')) autoMap['avg_price_walmart'] = i
+      else if (hl.includes('costco')) autoMap['avg_price_costco'] = i
+      else if (hl.includes('sam')) autoMap['avg_price_sams'] = i
+      else if (hl.includes('stock') || hl.includes('onhand') || hl.includes('instock')) autoMap['stock_quantity'] = i
+      else if (hl.includes('reorder') || hl.includes('minimum')) autoMap['reorder_point'] = i
+      else if (hl.includes('note')) autoMap['notes'] = i
+    })
+    return { headers, rows, autoMap }
+  }
+
   const handleCSVFile = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => {
-      const text = ev.target.result
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-      if (lines.length < 2) { toast.error('CSV needs a header row and at least one data row'); return }
-      const headers = lines[0].split(',').map(h => h.replace(/^"/, '').replace(/"$/, '').trim())
-      const rows = lines.slice(1).map(line => {
-        const vals = line.match(/(".*?"|[^",]+)/g) || []
-        return vals.map(v => v.replace(/^"/, '').replace(/"$/, '').trim())
-      })
-      setCsvHeaders(headers)
-      setCsvData(rows)
-      const autoMap = {}
-      headers.forEach((h, i) => {
-        const hl = h.toLowerCase().replace(/[^a-z]/g, '')
-        if (hl.includes('name') || hl === 'item' || hl === 'ingredient') autoMap['name'] = i
-        else if (hl.includes('category') || hl.includes('type')) autoMap['category'] = i
-        else if (hl === 'unit' || hl.includes('measure')) autoMap['unit'] = i
-        else if (hl.includes('cost') || hl.includes('price') || hl.includes('amount')) autoMap['unit_cost'] = i
-        else if (hl.includes('vendor') || hl.includes('supplier') || hl.includes('store') || hl.includes('source')) autoMap['supplier'] = i
-        else if (hl.includes('packsize') || hl.includes('qty') || hl.includes('quantity') || hl.includes('size')) autoMap['package_size'] = i
-        else if (hl.includes('packunit') || hl.includes('packageunit')) autoMap['package_unit'] = i
-        else if (hl.includes('walmart')) autoMap['avg_price_walmart'] = i
-        else if (hl.includes('costco')) autoMap['avg_price_costco'] = i
-        else if (hl.includes('sam')) autoMap['avg_price_sams'] = i
-        else if (hl.includes('stock') || hl.includes('onhand') || hl.includes('instock')) autoMap['stock_quantity'] = i
-        else if (hl.includes('reorder') || hl.includes('minimum')) autoMap['reorder_point'] = i
-        else if (hl.includes('note')) autoMap['notes'] = i
-      })
-      setCsvMapping(autoMap)
+      const result = parseCSVText(ev.target.result)
+      if (!result) { toast.error('CSV needs a header row and at least one data row'); return }
+      setCsvHeaders(result.headers)
+      setCsvData(result.rows)
+      setCsvMapping(result.autoMap)
     }
     reader.readAsText(file)
+  }
+
+  const [loadingStarter, setLoadingStarter] = useState(false)
+
+  const loadStarterList = async () => {
+    setLoadingStarter(true)
+    try {
+      const res = await fetch('/starter-ingredients.csv')
+      const text = await res.text()
+      const result = parseCSVText(text)
+      if (!result) { toast.error('Failed to parse starter list'); return }
+      setCsvHeaders(result.headers)
+      setCsvData(result.rows)
+      setCsvMapping(result.autoMap)
+      setShowImport(true)
+    } catch (err) {
+      toast.error('Failed to load starter list')
+    } finally {
+      setLoadingStarter(false)
+    }
+  }
+
+  const inferType = (cat) => {
+    if (!cat) return null
+    const cl = cat.toLowerCase()
+    if (cl === 'packaging' || cl === 'boxes' || cl === 'boards' || cl === 'ribbon') return 'packaging'
+    if (cl === 'decorating') return 'decorating'
+    if (cl === 'labeling' || cl === 'labels') return 'labeling'
+    return 'ingredient'
   }
 
   const handleImport = async () => {
@@ -198,7 +232,7 @@ export default function IngredientList() {
     let imported = 0
     try {
       for (const row of csvData) {
-        const data = { ingredient_type: typeTab }
+        const data = {}
         ING_CSV_FIELDS.forEach(f => {
           const colIdx = csvMapping[f.key]
           if (colIdx !== undefined && colIdx !== '' && row[colIdx]) {
@@ -206,13 +240,15 @@ export default function IngredientList() {
           }
         })
         if (!data.name) continue
+        const autoType = inferType(data.category)
+        data.ingredient_type = autoType || typeTab
         try {
           const created = await createIngredient(buildPayload(data))
           setItems(prev => [...prev, created])
           imported++
         } catch {}
       }
-      toast.success(`Imported ${imported} ingredient${imported !== 1 ? 's' : ''}`)
+      toast.success(`Imported ${imported} item${imported !== 1 ? 's' : ''}`)
       setShowImport(false)
       setCsvData(null)
       setCsvHeaders([])
@@ -258,6 +294,9 @@ export default function IngredientList() {
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button className="btn btn-ghost btn-sm" onClick={handleExportCSV} title="Export current list">
             <Download size={16} /> Export
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={loadStarterList} disabled={loadingStarter} title="Load 90+ common baking ingredients">
+            {loadingStarter ? <Loader2 size={16} className="spinner" /> : <Sparkles size={16} />} Starter List
           </button>
           <button className="btn btn-secondary" onClick={() => setShowImport(true)}>
             <Upload size={16} /> Import CSV
@@ -326,7 +365,7 @@ export default function IngredientList() {
                 </table>
               </div>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                Importing to: <strong style={{ textTransform: 'capitalize' }}>{typeTab}</strong> tab. Switch tabs first if these are a different type.
+                Items auto-sort into tabs by category (Packaging, Decorating, Labeling go to their tabs; everything else goes to Ingredients).
               </p>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button className="btn btn-ghost" onClick={() => { setCsvData(null); setCsvHeaders([]); setCsvMapping({}) }}>Back</button>
@@ -442,8 +481,11 @@ export default function IngredientList() {
         {filtered.length === 0 ? (
           <div className="ing-empty">
             <p>No {typeTab === 'ingredient' ? 'ingredients' : 'materials'} found.</p>
-            <p style={{ fontSize: '0.8rem', marginBottom: '12px' }}>Add one manually or import a CSV list.</p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            <p style={{ fontSize: '0.8rem', marginBottom: '12px' }}>Add one manually, import your own CSV, or start with our curated list.</p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-secondary btn-sm" onClick={loadStarterList} disabled={loadingStarter}>
+                {loadingStarter ? <Loader2 size={14} className="spinner" /> : <Sparkles size={14} />} Load Starter List (90+)
+              </button>
               <button className="btn btn-secondary btn-sm" onClick={() => setShowImport(true)}><Upload size={14} /> Import CSV</button>
               <button className="btn btn-primary btn-sm" onClick={handleNew}><Plus size={14} /> Add Manually</button>
             </div>
