@@ -329,9 +329,16 @@ export default function IngredientList() {
   const inferType = (cat) => {
     if (!cat) return null
     const cl = cat.toLowerCase()
-    if (cl === 'packaging' || cl === 'boxes' || cl === 'boards' || cl === 'ribbon') return 'packaging'
-    if (cl === 'decorating') return 'decorating'
-    if (cl === 'labeling' || cl === 'labels') return 'labeling'
+    if (cl.includes('label')) return 'labeling'
+    if (cl.includes('decorating')) return 'decorating'
+    if (
+      cl.includes('packaging') ||
+      cl.includes('box') ||
+      cl.includes('board') ||
+      cl.includes('clam')
+    ) {
+      return 'packaging'
+    }
     return 'ingredient'
   }
 
