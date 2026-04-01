@@ -235,7 +235,7 @@ export default function IngredientList() {
         const data = {}
         ING_CSV_FIELDS.forEach(f => {
           const colIdx = csvMapping[f.key]
-          if (colIdx !== undefined && colIdx !== '' && row[colIdx]) {
+          if (colIdx != null && row[colIdx]) {
             data[f.key] = row[colIdx]
           }
         })
@@ -344,7 +344,7 @@ export default function IngredientList() {
                   <div key={f.key} className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ fontSize: '0.7rem' }}>{f.label}</label>
                     <select className="form-select" style={{ fontSize: '0.8rem' }}
-                      value={csvMapping[f.key] ?? ''}
+                      value={csvMapping[f.key] != null ? String(csvMapping[f.key]) : ''}
                       onChange={e => setCsvMapping(prev => ({ ...prev, [f.key]: e.target.value === '' ? undefined : parseInt(e.target.value) }))}
                     >
                       <option value="">— skip —</option>
@@ -369,7 +369,7 @@ export default function IngredientList() {
               </p>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button className="btn btn-ghost" onClick={() => { setCsvData(null); setCsvHeaders([]); setCsvMapping({}) }}>Back</button>
-                <button className="btn btn-primary" onClick={handleImport} disabled={importing || csvMapping.name === undefined}>
+                <button className="btn btn-primary" onClick={handleImport} disabled={importing || csvMapping.name == null}>
                   {importing ? <><Loader2 size={15} className="spinner" /> Importing...</> : <><Upload size={15} /> Import {csvData.length} Items</>}
                 </button>
               </div>
