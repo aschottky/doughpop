@@ -37,10 +37,16 @@ export default function Settings() {
     e.preventDefault()
     setSaving(true)
     try {
+      const nextEmail = (form.email || '').trim()
+      const authEmail = (user?.email || '').trim()
+      if (nextEmail && nextEmail !== authEmail) {
+        const { error: authErr } = await supabase.auth.updateUser({ email: nextEmail })
+        if (authErr) throw authErr
+      }
       const payload = {
         full_name: form.full_name,
         business_name: form.business_name,
-        email: form.email,
+        email: nextEmail || null,
         phone: form.phone,
         website: form.website,
         bio: form.bio,
@@ -52,7 +58,11 @@ export default function Settings() {
         hourly_rate: form.hourly_rate === '' ? null : parseFloat(form.hourly_rate),
       }
       await updateProfile(payload)
-      toast.success('Profile updated!')
+      if (nextEmail && nextEmail !== authEmail) {
+        toast.success('Profile updated. If your project requires email confirmation, check the new inbox to finish the change — then use that email to sign in.')
+      } else {
+        toast.success('Profile updated!')
+      }
     } catch (err) {
       const msg = err.message || 'Failed to update profile'
       if (/schema cache|column.*profiles/i.test(msg)) {
