@@ -342,11 +342,18 @@ export default function IngredientList() {
     return 'ingredient'
   }
 
+  const ingredientDedupeKey = (name, type) =>
+    `${(type || 'ingredient').toLowerCase()}::${(name || '').trim().toLowerCase()}`
+
   const handleImport = async () => {
     if (!csvData?.length) return
     setImporting(true)
     let imported = 0
+    let skipped = 0
     const suppliersFromImport = new Set()
+    const seenKeys = new Set(
+      items.map((i) => ingredientDedupeKey(i.name, i.ingredient_type || 'ingredient'))
+    )
     try {
       for (const row of csvData) {
         const data = {}
@@ -360,9 +367,15 @@ export default function IngredientList() {
         if (data.supplier?.trim()) suppliersFromImport.add(data.supplier.trim())
         const autoType = inferType(data.category)
         data.ingredient_type = autoType || typeTab
+        const key = ingredientDedupeKey(data.name, data.ingredient_type)
+        if (seenKeys.has(key)) {
+          skipped++
+          continue
+        }
         try {
           const created = await createIngredient(buildPayload(data))
           setItems(prev => [...prev, created])
+          seenKeys.add(key)
           imported++
         } catch {}
       }
@@ -376,7 +389,11 @@ export default function IngredientList() {
           } catch (_) {}
         }
       }
-      toast.success(`Imported ${imported} item${imported !== 1 ? 's' : ''}`)
+      if (skipped > 0) {
+        toast.success(`Imported ${imported} (${skipped} already existed — skipped)`)
+      } else {
+        toast.success(`Imported ${imported} item${imported !== 1 ? 's' : ''}`)
+      }
       setShowImport(false)
       setCsvData(null)
       setCsvHeaders([])
